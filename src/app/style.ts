@@ -12,15 +12,21 @@ export const STYLESHEET = `
 }
 .hebrew {
   font-family: "${HEBREW_FONT}", "Frank Ruehl CLM", "Noto Serif Hebrew", serif;
-  font-size: 1.6em;
 }
 .translation {
   font-family: "Noto Serif", serif;
-  font-size: 1.05em;
   line-height: 1.4;
 }
-.segment.two-columns .translation {
-  font-size: 1em;
+.text-scale button {
+  min-width: 44px;
+}
+.text-smaller {
+  font-size: 0.85em;
+  font-weight: bold;
+}
+.text-larger {
+  font-size: 1.25em;
+  font-weight: bold;
 }
 .ref-entry {
   min-width: 160px;

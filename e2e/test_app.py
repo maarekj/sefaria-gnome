@@ -51,3 +51,24 @@ def test_deux_colonnes(run_app):
     assert app.text_visible('When God began to create heaven and earth')
     settings = fake.dir / 'config' / 'sefaria-gnome' / 'settings.json'
     wait_until(lambda: settings.exists() and '"twoColumns": true' in settings.read_text(), 5, 'réglage enregistré')
+
+
+def test_taille_du_texte(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    settings = fake.dir / 'config' / 'sefaria-gnome' / 'settings.json'
+    # raccourcis : Ctrl+plus agrandit, Ctrl+0 rétablit
+    app.key('ctrl+plus')
+    wait_until(lambda: settings.exists() and '"textScale": 1.1' in settings.read_text(), 5, 'texte agrandi')
+    app.key('ctrl+0')
+    wait_until(lambda: '"textScale": 1' in settings.read_text() and '1.1' not in settings.read_text(), 5, 'taille par défaut')
+    # boutons du menu « Taille du texte »
+    app.point(app.find(None, 'Aa'))
+    app.click('button', 'A−')
+    assert app.text_visible('90 %')
+    for _ in range(3):
+        app.click('button', 'A−')
+    assert app.text_visible('80 %')
+    wait_until(lambda: not app.find('button', 'A−').sensitive, 5, 'A− désactivé au minimum')
+    app.click('button', 'A+')
+    assert app.text_visible('90 %')

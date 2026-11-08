@@ -7,6 +7,7 @@ import type { Passage, Segment } from '../shared/api.ts';
 import { sefariaMarkup } from '../shared/markup.ts';
 import type { SettingsStore } from '../shared/settings.ts';
 import type { Store } from '../shared/store.ts';
+import { scaleLabel } from './TextScale.ts';
 
 /** Largeur de texte minimale (px) pour afficher deux colonnes ; en dessous : empilé. */
 export const TWO_COLUMNS_MIN_WIDTH = 700;
@@ -23,7 +24,9 @@ function textLabel(markup: string, hebrew: boolean): Gtk.Label {
     wrapMode: Pango.WrapMode.WORD_CHAR,
     selectable: true,
     xalign: hebrew ? 1 : 0,
-    justify: hebrew ? Gtk.Justification.RIGHT : Gtk.Justification.LEFT,
+    // Pango détecte la direction de chaque paragraphe et inverse alors LEFT / RIGHT : LEFT signifie
+    // « côté du début de ligne », donc à droite pour l'hébreu (RIGHT le renverrait à gauche)
+    justify: Gtk.Justification.LEFT,
     hexpand: true,
     cssClasses: [hebrew ? 'hebrew' : 'translation'],
   });
@@ -99,6 +102,15 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
             title={store.passage((p) => (p?.state === 'ready' ? p.value.ref : 'Sefaria'))}
             subtitle={store.passage((p) => (p?.state === 'ready' ? p.value.heRef : ''))}
           />
+          <Gtk.MenuButton $type="end" label="Aa" tooltipText="Taille du texte">
+            <Gtk.Popover>
+              <Gtk.Box spacing={6} cssClasses={['text-scale']}>
+                <Gtk.Button label="A−" tooltipText="Réduire le texte" actionName="app.text-smaller" cssClasses={['flat', 'text-smaller']} />
+                <Gtk.Button label={settings.value((s) => scaleLabel(s.textScale))} tooltipText="Taille par défaut" actionName="app.text-reset" cssClasses={['flat', 'scale-value']} />
+                <Gtk.Button label="A+" tooltipText="Agrandir le texte" actionName="app.text-larger" cssClasses={['flat', 'text-larger']} />
+              </Gtk.Box>
+            </Gtk.Popover>
+          </Gtk.MenuButton>
           <Gtk.ToggleButton
             $type="end"
             iconName="view-dual-symbolic"
@@ -135,6 +147,21 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
             hscrollbarPolicy={Gtk.PolicyType.NEVER}
             $={(self: Gtk.ScrolledWindow) => {
               scroller = self;
+              // changement de taille : même proportion défilée une fois le texte remis en page
+              let scale = settings.value.peek().textScale;
+              onCleanup(
+                settings.value.subscribe(() => {
+                  const next = settings.value.peek().textScale;
+                  if (next === scale) return;
+                  scale = next;
+                  const v = self.vadjustment;
+                  const ratio = v.upper > 0 ? v.value / v.upper : 0;
+                  const id = v.connect('notify::upper', () => {
+                    v.disconnect(id);
+                    v.set_value(ratio * v.upper);
+                  });
+                }),
+              );
               const adj = self.hadjustment;
               adj.connect('notify::page-size', () => {
                 const w = Math.round(adj.pageSize);

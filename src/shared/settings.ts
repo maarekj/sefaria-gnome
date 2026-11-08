@@ -6,12 +6,15 @@ import * as z from 'zod/mini';
 const RawSettings = z.object({
   /** hébreu et traduction côte à côte */
   twoColumns: z.optional(z.boolean()),
+  /** échelle du texte lu (1 : taille par défaut), bornée à l'usage */
+  textScale: z.optional(z.number().check(z.positive())),
 });
 export interface Settings {
   readonly twoColumns: boolean;
+  readonly textScale: number;
 }
 
-const DEFAULTS: Settings = { twoColumns: false };
+const DEFAULTS: Settings = { twoColumns: false, textScale: 1 };
 
 const decoder = new TextDecoder();
 
@@ -22,7 +25,7 @@ export function readSettings(file = settingsFile()): Settings {
   try {
     const [, bytes] = GLib.file_get_contents(file);
     const r = z.safeParse(RawSettings, JSON.parse(decoder.decode(bytes)));
-    if (r.success) return { twoColumns: r.data.twoColumns ?? DEFAULTS.twoColumns };
+    if (r.success) return { twoColumns: r.data.twoColumns ?? DEFAULTS.twoColumns, textScale: r.data.textScale ?? DEFAULTS.textScale };
   } catch {
     // absent ou illisible
   }

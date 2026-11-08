@@ -50,8 +50,9 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
   Pas de `<With>` directement dans un `<With>` (Fragments imbriqués non gérés) : intercaler un `Gtk.Box`.
   Un `Gtk.Stack` dont `visibleChildName` est lié doit avoir tous ses enfants nommés dès la
   construction (sinon `Gtk-WARNING` : enfant introuvable).
-- Hébreu : libellé aligné à droite (`xalign: 1`, `justify: RIGHT`), sans `set_direction(RTL)` (qui
-  inverse `xalign`) ; la direction du paragraphe est détectée par Pango.
+- Hébreu : libellé placé à droite (`xalign: 1`) et `justify: LEFT` : Pango détecte la direction RTL
+  du paragraphe et inverse LEFT / RIGHT (`justify: RIGHT` renverrait les lignes suivantes à gauche).
+  Pas de `set_direction(RTL)` (qui inverse `xalign`).
 - Tout bouton à icône seule a une infobulle.
 - Ne jamais bloquer la boucle principale (requêtes et traitements longs en asynchrone).
 - Respecter le serveur de Sefaria : pas de requêtes en rafale ni de tests sur le vrai serveur

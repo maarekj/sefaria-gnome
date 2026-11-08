@@ -11,6 +11,7 @@ import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
 import { STYLESHEET } from './style.ts';
+import { canGrow, canShrink, scaleCss, stepScale } from './TextScale.ts';
 
 /** Identifiant D-Bus (surchargeable pour lancer une version de développement à côté). */
 export const APP_ID = GLib.getenv('SEFARIA_GNOME_APP_ID') ?? 'io.github.maarekj.SefariaGnome';
@@ -46,6 +47,29 @@ goTo.connect('activate', () => {
 app.add_action(goTo);
 app.set_accels_for_action('app.go-to', ['<Control>l']);
 
+/** app.text-larger / app.text-smaller / app.text-reset : taille du texte (A+ / A-) */
+const textLarger = new Gio.SimpleAction({ name: 'text-larger' });
+textLarger.connect('activate', () => settings.update({ textScale: stepScale(settings.value.peek().textScale, 1) }));
+const textSmaller = new Gio.SimpleAction({ name: 'text-smaller' });
+textSmaller.connect('activate', () => settings.update({ textScale: stepScale(settings.value.peek().textScale, -1) }));
+const textReset = new Gio.SimpleAction({ name: 'text-reset' });
+textReset.connect('activate', () => settings.update({ textScale: 1 }));
+for (const a of [textLarger, textSmaller, textReset]) app.add_action(a);
+app.set_accels_for_action('app.text-larger', ['<Control>plus', '<Control>equal', '<Control>KP_Add']);
+app.set_accels_for_action('app.text-smaller', ['<Control>minus', '<Control>KP_Subtract']);
+app.set_accels_for_action('app.text-reset', ['<Control>0', '<Control>KP_0']);
+/** feuille de style des tailles, régénérée à chaque changement d'échelle */
+const scaleCssProvider = new Gtk.CssProvider();
+const applyScale = (): void => {
+  const scale = settings.value.peek().textScale;
+  scaleCssProvider.load_from_string(scaleCss(scale));
+  textLarger.enabled = canGrow(scale);
+  textSmaller.enabled = canShrink(scale);
+  textReset.enabled = Math.abs(scale - 1) > 1e-6;
+};
+applyScale();
+settings.value.subscribe(applyScale);
+
 const quit = new Gio.SimpleAction({ name: 'quit' });
 quit.connect('activate', () => app.quit());
 app.add_action(quit);
@@ -61,7 +85,12 @@ app.connect('startup', () => {
   css.load_from_string(STYLESHEET);
   const display = Gdk.Display.get_default();
   // oxlint-disable-next-line typescript/no-deprecated -- seule API exposée par GJS pour un style global
-  if (display !== null) Gtk.StyleContext.add_provider_for_display(display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+  if (display !== null) {
+    // oxlint-disable-next-line typescript/no-deprecated -- seule API exposée par GJS pour un style global
+    Gtk.StyleContext.add_provider_for_display(display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+    // oxlint-disable-next-line typescript/no-deprecated -- idem
+    Gtk.StyleContext.add_provider_for_display(display, scaleCssProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+  }
 });
 
 app.connect('activate', () => {
