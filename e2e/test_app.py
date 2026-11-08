@@ -1,0 +1,40 @@
+"""Parcours principaux : bibliothèque, lecture, navigation entre sections, référence saisie."""
+
+from conftest import wait_until
+
+
+def test_bibliotheque_puis_lecture(run_app):
+    fake, app = run_app()
+    assert app.text_visible('Choisissez un texte')
+    # Tanakh → Torah → Genesis : la première section s'ouvre
+    app.point(app.find('label', 'Tanakh'))
+    app.point(app.find('label', 'Torah'))
+    app.point(app.find('label', 'Genesis'))
+    assert app.text_visible('When God began to create heaven and earth')
+    assert app.text_visible('בראשית א׳')
+    assert any(r.startswith('/api/v3/texts/Genesis%201') for r in fake.requests())
+
+
+def test_section_suivante_et_precedente(run_app):
+    _, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    app.click('button', 'Section suivante')
+    assert app.text_visible('Genesis 2')
+    app.text_gone('When God began to create heaven and earth')
+    # dernière section du faux serveur : bouton désactivé
+    wait_until(lambda: not app.find('button', 'Section suivante').sensitive, 5, 'section suivante désactivée')
+    app.click('button', 'Section précédente')
+    assert app.text_visible('When God began to create heaven and earth')
+
+
+def test_reference_saisie(run_app):
+    fake, app = run_app()
+    app.go_to('Berakhot 2a')
+    assert app.text_visible('ברכות')
+    assert any('Berakhot%202a' in r for r in fake.requests())
+
+
+def test_reference_inconnue(run_app):
+    _, app = run_app()
+    app.go_to('Livre inexistant 1')
+    assert app.text_visible('Texte introuvable')

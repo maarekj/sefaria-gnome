@@ -1,0 +1,34 @@
+[
+  {
+    "category": "Tanakh",
+    "heCategory": "תנ\"ך",
+    "enShortDesc": "The core canon of Jewish texts.",
+    "contents": [
+      {
+        "category": "Torah",
+        "heCategory": "תורה",
+        "contents": [
+          { "title": "Genesis", "heTitle": "בראשית", "categories": ["Tanakh", "Torah"] },
+          { "title": "Exodus", "heTitle": "שמות", "categories": ["Tanakh", "Torah"] }
+        ]
+      }
+    ]
+  },
+  {
+    "category": "Talmud",
+    "heCategory": "תלמוד",
+    "contents": [
+      {
+        "category": "Bavli",
+        "heCategory": "בבלי",
+        "contents": [
+          {
+            "category": "Seder Zeraim",
+            "heCategory": "סדר זרעים",
+            "contents": [{ "title": "Berakhot", "heTitle": "ברכות", "categories": ["Talmud", "Bavli", "Seder Zeraim"] }]
+          }
+        ]
+      }
+    ]
+  }
+]
