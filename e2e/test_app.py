@@ -38,3 +38,16 @@ def test_reference_inconnue(run_app):
     _, app = run_app()
     app.go_to('Livre inexistant 1')
     assert app.text_visible('Texte introuvable')
+
+
+def test_deux_colonnes(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    toggle = app.find('toggle button', 'Deux colonnes')
+    assert not app._checked(toggle)
+    app.point(toggle)
+    wait_until(lambda: app._checked(toggle), 5, 'mode deux colonnes activé')
+    # texte toujours affiché, réglage enregistré
+    assert app.text_visible('When God began to create heaven and earth')
+    settings = fake.dir / 'config' / 'sefaria-gnome' / 'settings.json'
+    wait_until(lambda: settings.exists() and '"twoColumns": true' in settings.read_text(), 5, 'réglage enregistré')

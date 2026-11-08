@@ -6,6 +6,7 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import { createRoot } from 'gnim';
 import { SefariaClient } from '../shared/client.ts';
+import { SettingsStore } from '../shared/settings.ts';
 import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
@@ -17,6 +18,7 @@ export const APP_ID = GLib.getenv('SEFARIA_GNOME_APP_ID') ?? 'io.github.maarekj.
 const app = new Adw.Application({ applicationId: APP_ID, flags: Gio.ApplicationFlags.DEFAULT_FLAGS });
 Gtk.Window.set_default_icon_name(APP_ID);
 const store = new Store(new SefariaClient());
+const settings = new SettingsStore();
 let mainWindow: Gtk.Window | null = null;
 
 // ------------------------------------------------------------------ actions
@@ -74,7 +76,7 @@ app.connect('activate', () => {
   const initial = GLib.getenv('SEFARIA_GNOME_REF');
   if (initial !== null) store.open(initial);
   createRoot((dispose) => {
-    const win = MainWindow({ app, store });
+    const win = MainWindow({ app, store, settings });
     if (!(win instanceof Gtk.Window)) throw new TypeError('fenêtre attendue');
     mainWindow = win;
     win.connect('close-request', () => {

@@ -19,7 +19,10 @@ export const STYLESHEET = `
   font-size: 1.05em;
   line-height: 1.4;
 }
+.segment.two-columns .translation {
+  font-size: 1em;
+}
 .ref-entry {
-  min-width: 260px;
+  min-width: 160px;
 }
 `;

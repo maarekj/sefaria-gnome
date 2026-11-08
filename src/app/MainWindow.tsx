@@ -2,6 +2,7 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 import { onCleanup } from 'gnim';
+import type { SettingsStore } from '../shared/settings.ts';
 import type { Store } from '../shared/store.ts';
 import { LibraryPane } from './LibraryPane.tsx';
 import { ReaderPage } from './ReaderPage.tsx';
@@ -11,7 +12,7 @@ function asPage(o: JSX.Element): Adw.NavigationPage {
   return o;
 }
 
-export function MainWindow({ app, store }: { app: Adw.Application; store: Store }): JSX.Element {
+export function MainWindow({ app, store, settings }: { app: Adw.Application; store: Store; settings: SettingsStore }): JSX.Element {
   let split: Adw.NavigationSplitView | null = null;
   return (
     <Adw.ApplicationWindow
@@ -34,7 +35,7 @@ export function MainWindow({ app, store }: { app: Adw.Application; store: Store 
         $={(self: Adw.NavigationSplitView) => {
           split = self;
           self.sidebar = LibraryPane({ store });
-          self.content = asPage(ReaderPage({ store }));
+          self.content = asPage(ReaderPage({ store, settings }));
           onCleanup(
             store.passage.subscribe(() => {
               if (store.passage.peek() !== null) self.showContent = true;
