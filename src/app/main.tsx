@@ -7,6 +7,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import { createRoot } from 'gnim';
 import { SefariaClient } from '../shared/client.ts';
 import { Store } from '../shared/store.ts';
+import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
 import { STYLESHEET } from './style.ts';
 
@@ -52,6 +53,8 @@ app.set_accels_for_action('window.close', ['<Control>w']);
 // ------------------------------------------------------------------ fenêtre
 
 app.connect('startup', () => {
+  const missing = loadFonts();
+  if (missing.length > 0) console.error(`polices introuvables : ${missing.join(', ')}`);
   const css = new Gtk.CssProvider();
   css.load_from_string(STYLESHEET);
   const display = Gdk.Display.get_default();

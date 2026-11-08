@@ -12,6 +12,8 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
   balisage Pango (`markup.ts` : notes de bas de page retirées).
 - `src/app/` : application `Adw.Application` en TSX avec gnim (`gnim/gtk4`) : bibliothèque en barre
   latérale (`LibraryPane.tsx`, une page par catégorie), lecture (`ReaderPage.tsx`).
+- `data/fonts/` : polices livrées (Taamey Frank CLM pour l'hébreu, GPL + exception de police),
+  chargées au démarrage par `src/app/fonts.ts` (Pango) : ni installation ni police système requises.
 - `scripts/` : outillage Node 24 (build esbuild, types gnim, tests, captures, faux serveur, installation).
 - Variables : `SEFARIA_GNOME_URL` (serveur, défaut https://www.sefaria.org), `SEFARIA_GNOME_REF`
   (passage ouvert au démarrage), `SEFARIA_GNOME_APP_ID` (identifiant D-Bus).

@@ -172,6 +172,7 @@ overrides:
   '@girs/giounix-2.0': 5.5.0
   '@girs/soup-3.0': 5.5.0
   '@girs/pango-1.0': 5.5.0
+  '@girs/pangocairo-1.0': 5.5.0
 
 importers:
 
@@ -203,6 +204,9 @@ importers:
         specifier: 5.5.0
         version: 5.5.0
       '@girs/pango-1.0':
+        specifier: 5.5.0
+        version: 5.5.0
+      '@girs/pangocairo-1.0':
         specifier: 5.5.0
         version: 5.5.0
       '@girs/soup-3.0':
@@ -430,8 +434,8 @@ packages:
   '@girs/pango-1.0@5.5.0':
     resolution: {integrity: sha512-UFySqZh4LUL7owMkl8Ad+DOryRsIntkZUSpq7xLwJ34x6WsG3SOkAlMFWaxJl4OxDy7we5SRm17Ij8OzdOu+uw==}
 
-  '@girs/pangocairo-1.0@5.6.0':
-    resolution: {integrity: sha512-i9pN3YwzhCTw9SxOFPnWs6fdYIu3hXbK3/rFAS8kaOOtz+ENpPxbMRFz01W8Rq3jEPIvOtVoHTiXdTSe8dM8rg==}
+  '@girs/pangocairo-1.0@5.5.0':
+    resolution: {integrity: sha512-DfqUQOWM5XU0hZyNsVkwvcfOMbW7B68q+XZLD0bvrX5Ocy1EeYHM6x56oJ5CtIBEj6BiWx+jjZLHcubo+hMsOQ==}
 
   '@girs/soup-3.0@5.5.0':
     resolution: {integrity: sha512-Vo2CPe4BgkJtXzZCDyJiHfX2+uZHkiykv+LyCaDYcAD/mDsiqRmV4CgcXZmAkaTo74M0g2iC8uJuXv2BhttCuQ==}
@@ -847,7 +851,7 @@ snapshots:
       '@girs/gtk-4.0': 5.5.0
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0
-      '@girs/pangocairo-1.0': 5.6.0
+      '@girs/pangocairo-1.0': 5.5.0
 
   '@girs/cairo-1.0@5.6.0':
     dependencies:
@@ -872,7 +876,7 @@ snapshots:
       '@girs/gobject-2.0': 5.5.0
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0
-      '@girs/pangocairo-1.0': 5.6.0
+      '@girs/pangocairo-1.0': 5.5.0
 
   '@girs/gdkpixbuf-2.0@5.6.0':
     dependencies:
@@ -932,7 +936,7 @@ snapshots:
       '@girs/graphene-1.0': 5.6.0
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0
-      '@girs/pangocairo-1.0': 5.6.0
+      '@girs/pangocairo-1.0': 5.5.0
 
   '@girs/gtk-4.0@5.5.0':
     dependencies:
@@ -949,7 +953,7 @@ snapshots:
       '@girs/gsk-4.0': 5.6.0
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0
-      '@girs/pangocairo-1.0': 5.6.0
+      '@girs/pangocairo-1.0': 5.5.0
 
   '@girs/harfbuzz-0.0@5.6.0':
     dependencies:
@@ -969,7 +973,7 @@ snapshots:
       '@girs/gobject-2.0': 5.5.0
       '@girs/harfbuzz-0.0': 5.6.0
 
-  '@girs/pangocairo-1.0@5.6.0':
+  '@girs/pangocairo-1.0@5.5.0':
     dependencies:
       '@girs/cairo-1.0': 5.6.0
       '@girs/freetype2-2.0': 5.6.0
