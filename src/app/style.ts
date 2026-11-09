@@ -63,6 +63,9 @@ export const STYLESHEET = `
   padding-bottom: 12px;
   border-bottom: 1px solid alpha(currentColor, 0.1);
 }
+.ref-entry.compact {
+  min-width: 70px;
+}
 .ref-entry {
   min-width: 110px;
 }

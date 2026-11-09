@@ -1,14 +1,15 @@
-// Menu « Versions » de la barre d'en-tête : textes affichés (hébreu et/ou traduction), langue de
-// la traduction, traduction et version hébraïque du livre ouvert.
+// Menu « Affichage » de la barre d'en-tête : taille du texte, deux colonnes, textes affichés
+// (hébreu et/ou traduction), langue de la traduction, traduction et version hébraïque du livre ouvert.
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import { languageName, type Passage, type VersionInfo } from '../shared/api.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Accessor } from 'gnim';
 import type { Reader } from '../shared/reader.ts';
+import { scaleLabel } from './TextScale.ts';
 
 const DISPLAYS: readonly (readonly [Display, string])[] = [
-  ['both', 'Hébreu et traduction'],
+  ['both', 'Les deux'],
   ['hebrew', 'Hébreu'],
   ['translation', 'Traduction'],
 ];
@@ -21,7 +22,7 @@ function choices(items: readonly { readonly key: string; readonly label: string 
   const keys = new Map<Gtk.ListBoxRow, string>();
   for (const it of items) {
     const row = new Gtk.Box({ spacing: 8, marginTop: 6, marginBottom: 6, marginStart: 10, marginEnd: 10 });
-    row.append(new Gtk.Label({ label: it.label, xalign: 0, hexpand: true, wrap: true, maxWidthChars: 40 }));
+    row.append(new Gtk.Label({ label: it.label, xalign: 0, hexpand: true, wrap: true, maxWidthChars: 32 }));
     row.append(new Gtk.Image({ iconName: 'object-select-symbolic', opacity: it.key === current ? 1 : 0 }));
     const r = new Gtk.ListBoxRow({ child: row, activatable: true });
     keys.set(r, it.key);
@@ -69,7 +70,7 @@ function build(box: Gtk.Box, store: Reader, settings: SettingsStore, passage: Pa
         wrap: true,
         xalign: 0,
         marginTop: 12,
-        maxWidthChars: 40,
+        maxWidthChars: 32,
         cssClasses: ['warning'],
       }),
     );
@@ -122,12 +123,41 @@ function build(box: Gtk.Box, store: Reader, settings: SettingsStore, passage: Pa
   }
 }
 
-/** Bouton « Versions » et son menu, pour l'onglet courant. */
+/** Partie fixe du menu : taille du texte (actions app.text-*) et deux colonnes. */
+function layoutRow(settings: SettingsStore): { widget: Gtk.Widget; dispose: () => void } {
+  const row = new Gtk.Box({ spacing: 6, marginTop: 12, cssClasses: ['text-scale'] });
+  row.append(new Gtk.Button({ label: 'A−', tooltipText: 'Réduire le texte', actionName: 'app.text-smaller', cssClasses: ['flat', 'text-smaller'] }));
+  const value = new Gtk.Button({ tooltipText: 'Taille par défaut', actionName: 'app.text-reset', cssClasses: ['flat', 'scale-value'] });
+  row.append(value);
+  row.append(new Gtk.Button({ label: 'A+', tooltipText: 'Agrandir le texte', actionName: 'app.text-larger', cssClasses: ['flat', 'text-larger'] }));
+  row.append(new Gtk.Box({ hexpand: true }));
+  const columns = new Gtk.ToggleButton({ iconName: 'view-dual-symbolic', tooltipText: 'Deux colonnes' });
+  columns.connect('toggled', () => {
+    if (columns.active !== settings.value.peek().twoColumns) settings.update({ twoColumns: columns.active });
+  });
+  row.append(columns);
+  const sync = (): void => {
+    const s = settings.value.peek();
+    value.label = scaleLabel(s.textScale);
+    columns.active = s.twoColumns;
+    columns.sensitive = s.display === 'both';
+  };
+  sync();
+  return { widget: row, dispose: settings.value.subscribe(sync) };
+}
+
+/** Bouton « Affichage » et son menu, pour l'onglet courant. */
 export function versionsMenu(current: Accessor<Reader>, settings: SettingsStore, reloadBook: (book: string) => void): { button: Gtk.MenuButton; dispose: () => void } {
-  const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, marginTop: 0, marginBottom: 12, marginStart: 12, marginEnd: 12, widthRequest: 340 });
-  const scroller = new Gtk.ScrolledWindow({ child: box, hscrollbarPolicy: Gtk.PolicyType.NEVER, propagateNaturalHeight: true, maxContentHeight: 560 });
+  const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, marginTop: 0, marginBottom: 12, marginStart: 12, marginEnd: 12, widthRequest: 300 });
+  const fixed = layoutRow(settings);
+  const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
+  fixed.widget.set_margin_start(12);
+  fixed.widget.set_margin_end(12);
+  content.append(fixed.widget);
+  content.append(box);
+  const scroller = new Gtk.ScrolledWindow({ child: content, hscrollbarPolicy: Gtk.PolicyType.NEVER, propagateNaturalHeight: true, maxContentHeight: 600 });
   const popover = new Gtk.Popover({ child: scroller });
-  const button = new Gtk.MenuButton({ label: 'Versions', tooltipText: 'Versions et affichage', popover });
+  const button = new Gtk.MenuButton({ label: 'Aa', tooltipText: 'Affichage', popover, cssClasses: ['display-menu'] });
   const ready = (): Passage | null => {
     const p = current.peek().passage.peek();
     return p?.state === 'ready' ? p.value : null;
@@ -166,7 +196,7 @@ export function versionsMenu(current: Accessor<Reader>, settings: SettingsStore,
     refresh();
   };
   follow();
-  const subs = [current.subscribe(follow), settings.value.subscribe(refresh), () => tabSubs.forEach((u) => u())];
+  const subs = [current.subscribe(follow), settings.value.subscribe(refresh), () => tabSubs.forEach((u) => u()), fixed.dispose];
   return {
     button,
     dispose: () => {

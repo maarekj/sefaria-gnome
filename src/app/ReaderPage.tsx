@@ -8,7 +8,6 @@ import { chapterTitle, passageItems } from '../shared/chapters.ts';
 import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
-import { scaleLabel } from './TextScale.ts';
 import { linksPanel } from './LinksPanel.ts';
 import type { Tabs } from './Tabs.ts';
 import { versionsMenu } from './VersionsMenu.ts';
@@ -239,7 +238,7 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
 }
 
 /** Page de lecture : barre d'en-tête (onglet affiché), barre d'onglets, onglets. */
-export function ReaderPage({ tabs, settings }: { tabs: Tabs; settings: SettingsStore }): JSX.Element {
+export function ReaderPage({ tabs, settings, narrow }: { tabs: Tabs; settings: SettingsStore; narrow: Accessor<boolean> }): JSX.Element {
   const versions = versionsMenu(tabs.current, settings, (book) => tabs.reloadBook(book));
   onCleanup(versions.dispose);
   const ready = (): Passage | null => {
@@ -249,7 +248,7 @@ export function ReaderPage({ tabs, settings }: { tabs: Tabs; settings: SettingsS
   return (
     <Adw.NavigationPage title="Lecture">
       <Adw.ToolbarView>
-        <Adw.HeaderBar $type="top">
+        <Adw.HeaderBar $type="top" decorationLayout={narrow((n) => (n ? ":close" : (Gtk.Settings.get_default()?.gtkDecorationLayout ?? ":minimize,maximize,close")))}>
           <Gtk.Button
             $type="start"
             iconName="go-previous-symbolic"
@@ -272,35 +271,17 @@ export function ReaderPage({ tabs, settings }: { tabs: Tabs; settings: SettingsS
           />
           <Adw.WindowTitle
             $type="title"
+            visible={narrow((n) => !n)}
             title={tabs.passage((p) => (p?.state === 'ready' ? p.value.ref : 'Sefaria'))}
             subtitle={tabs.passage((p) => (p?.state === 'ready' ? p.value.heRef : ''))}
           />
           <Gtk.Box $type="end" $={(self: Gtk.Box) => self.append(versions.button)} />
-          <Gtk.MenuButton $type="end" label="Aa" tooltipText="Taille du texte">
-            <Gtk.Popover>
-              <Gtk.Box spacing={6} cssClasses={['text-scale']}>
-                <Gtk.Button label="A−" tooltipText="Réduire le texte" actionName="app.text-smaller" cssClasses={['flat', 'text-smaller']} />
-                <Gtk.Button label={settings.value((s) => scaleLabel(s.textScale))} tooltipText="Taille par défaut" actionName="app.text-reset" cssClasses={['flat', 'scale-value']} />
-                <Gtk.Button label="A+" tooltipText="Agrandir le texte" actionName="app.text-larger" cssClasses={['flat', 'text-larger']} />
-              </Gtk.Box>
-            </Gtk.Popover>
-          </Gtk.MenuButton>
-          <Gtk.ToggleButton
-            $type="end"
-            iconName="view-dual-symbolic"
-            tooltipText="Deux colonnes"
-            active={settings.value((s) => s.twoColumns)}
-            sensitive={settings.value((s) => s.display === 'both')}
-            onToggled={(self: Gtk.ToggleButton) => {
-              if (self.active !== settings.value.peek().twoColumns) settings.update({ twoColumns: self.active });
-            }}
-          />
           <Gtk.SearchEntry
             $type="end"
             name="ref-entry"
             placeholderText="Référence (ex. Genesis 1)"
             tooltipText="Aller à une référence"
-            cssClasses={['ref-entry']}
+            cssClasses={narrow((n) => (n ? ['ref-entry', 'compact'] : ['ref-entry']))}
             $={(self: Gtk.SearchEntry) => {
               self.connect('activate', () => tabs.open(self.text));
               const sync = (): void => {

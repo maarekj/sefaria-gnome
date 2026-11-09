@@ -18,6 +18,8 @@ export function MainWindow({ app, store, settings, ready }: { app: Adw.Applicati
   let split: Adw.NavigationSplitView | null = null;
   // panneau des liens de chaque onglet en superposition (fenêtre moyenne ou étroite)
   const [linksCollapsed, setLinksCollapsed] = createState(false);
+  // fenêtre étroite : barre d'en-tête réduite (titre masqué, seul le bouton de fermeture)
+  const [narrow, setNarrow] = createState(false);
   const tabs = new Tabs(store, (reader, t) => ReaderView({ reader, tabs: t, settings, linksCollapsed }));
   tabs.view.vexpand = true;
   tabs.view.hexpand = true;
@@ -36,7 +38,10 @@ export function MainWindow({ app, store, settings, ready }: { app: Adw.Applicati
         // (signaux : les onglets créés plus tard suivent aussi)
         let midOn = false;
         let narrowOn = false;
-        const sync = (): void => setLinksCollapsed(midOn || narrowOn);
+        const sync = (): void => {
+          setLinksCollapsed(midOn || narrowOn);
+          setNarrow(narrowOn);
+        };
         const mid = new Adw.Breakpoint({ condition: Adw.BreakpointCondition.parse('max-width: 1000sp') });
         mid.connect('apply', () => {
           midOn = true;
@@ -67,7 +72,7 @@ export function MainWindow({ app, store, settings, ready }: { app: Adw.Applicati
         $={(self: Adw.NavigationSplitView) => {
           split = self;
           self.sidebar = LibraryPane({ tabs });
-          self.content = asPage(ReaderPage({ tabs, settings }));
+          self.content = asPage(ReaderPage({ tabs, settings, narrow }));
           onCleanup(
             tabs.passage.subscribe(() => {
               if (tabs.passage.peek() !== null) self.showContent = true;

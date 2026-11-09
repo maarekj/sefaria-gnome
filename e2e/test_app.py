@@ -46,6 +46,7 @@ def test_reference_inconnue(run_app):
 def test_deux_colonnes(run_app):
     fake, app = run_app(ref='Genesis 1')
     app.text_visible('When God began to create heaven and earth')
+    app.point(app.find(None, 'Aa'))
     toggle = app.find('toggle button', 'Deux colonnes')
     assert not app._checked(toggle)
     app.point(toggle)
@@ -80,7 +81,7 @@ def test_taille_du_texte(run_app):
 def test_versions_et_affichage(run_app):
     fake, app = run_app(ref='Genesis 1')
     app.text_visible('When God began to create heaven and earth')
-    app.point(app.find(None, 'Versions'))
+    app.point(app.find(None, 'Aa'))
     # langue : français → traduction par défaut, puis une autre traduction française
     app.point(app.find('label', 'Français'))
     assert app.text_visible('Au commencement, Dieu créa le ciel et la terre.')
@@ -93,7 +94,7 @@ def test_versions_et_affichage(run_app):
     app.key('Escape')
     app.go_to('Berakhot 2a')
     assert app.text_visible('The beginning of tractate')
-    app.point(app.find(None, 'Versions'))
+    app.point(app.find(None, 'Aa'))
     assert app.text_visible('Pas de traduction en français')
     # hébreu seul : traduction masquée
     app.click('toggle button', 'Hébreu')
