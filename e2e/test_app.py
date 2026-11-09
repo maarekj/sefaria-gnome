@@ -285,3 +285,22 @@ def test_traduction_par_ia(run_app):
     wait_until(lambda: len(ai_prompts(fake)) == 2, 10, 'verset traduit')
     assert 'uniquement le segment [2]' in ai_prompts(fake)[1]['prompt']
     assert app.text_visible('[IA] traduction du verset seul 2')
+
+
+def test_traduction_d_un_commentaire(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    app.key('ctrl+comma')
+    app.point(app.find(None, 'Outil'))
+    app.point(app.find(None, 'Claude Code'))
+    app.key('Escape')
+    app.point(app.find('label', contains='When God began to create'))
+    app.point(app.find('label', 'Rashi'))
+    assert app.text_visible('Rabbi Isaac said')
+    # premier bouton « Traduire » : la première source (Rashi on Genesis 1:1:1)
+    app.click('button', 'Traduire')
+    assert app.text_visible('[IA] traduction du segment 1', 15)
+    app.text_gone('Rabbi Isaac said')
+    prompt = ai_prompts(fake)[-1]['prompt']
+    # contexte : le commentaire et le verset commenté
+    assert 'Rashi on Genesis 1:1:1' in prompt and 'Ce texte commente Genesis 1:1' in prompt and 'When God began to create' in prompt

@@ -22,7 +22,15 @@ export const languageLabel = (code: string): string => AI_LANGUAGES.find(([c]) =
  * Invite pour traduire `passage` (tous ses segments, ou seulement `only`) : référence, section
  * entière en hébreu comme contexte, traduction de Sefaria comme appui ; réponse JSON attendue.
  */
-export function buildPrompt(passage: Passage, language: string, only?: string): string {
+/** Verset commenté (contexte de la traduction d'un commentaire). */
+export interface Commented {
+  readonly ref: string;
+  /** HTML de Sefaria */
+  readonly he: string;
+  readonly en: string;
+}
+
+export function buildPrompt(passage: Passage, language: string, only?: string, commented?: Commented): string {
   const lines = passage.segments.map((s) => {
     const he = plainText(s.he);
     const en = plainText(s.en);
@@ -32,6 +40,14 @@ export function buildPrompt(passage: Passage, language: string, only?: string): 
   return [
     `Tu traduis des textes juifs classiques (Tanakh, Michna, Talmud, commentaires…) de l'hébreu ou de l'araméen vers le ${languageLabel(language)}.`,
     `Passage : ${passage.ref} (${passage.heRef}), livre « ${passage.book} ».`,
+    ...(commented === undefined
+      ? []
+      : [
+          `Ce texte commente ${commented.ref} ; le voici, pour comprendre le commentaire (ne pas le traduire) :`,
+          `    ${plainText(commented.he)}`,
+          ...(commented.en === '' ? [] : [`    (traduction existante : ${plainText(commented.en)})`]),
+          'Les mots du verset cités par le commentaire (en tête, souvent en gras) se traduisent comme dans ce verset.',
+        ]),
     'Voici la section entière, segment par segment, avec la traduction existante de Sefaria quand elle existe (version' +
       ` « ${passage.enVersion || 'aucune'} », à utiliser comme appui seulement, pas à recopier).`,
     '',

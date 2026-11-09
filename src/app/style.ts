@@ -69,6 +69,11 @@ export const STYLESHEET = `
 .ref-suggestions {
   min-width: 260px;
 }
+.small-button {
+  padding: 2px 8px;
+  min-height: 24px;
+  font-size: 0.9em;
+}
 .ref-entry {
   min-width: 110px;
 }

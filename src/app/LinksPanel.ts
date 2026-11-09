@@ -8,7 +8,7 @@ import { type LinkBook, type LinkCategory, type Passage, segmentRef } from '../s
 import { languageLabel } from '../shared/aiprompt.ts';
 import { translate } from '../shared/translate.ts';
 import { errorMessage } from '../shared/errors.ts';
-import { sefariaMarkup, withDirection } from '../shared/markup.ts';
+import { escapeMarkup, sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Reader } from '../shared/reader.ts';
 
 /** Ouverture d'une source (nouvel onglet). */
@@ -59,12 +59,57 @@ function sourceBlock(reader: Reader, ref: string, openSource: OpenSource): Gtk.W
       body.append(new Gtk.Label({ label: `Texte indisponible : ${error}`, xalign: 0, wrap: true, cssClasses: ['dim-label'] }));
       return;
     }
+    const passage = p;
+    const translations = new Map<string, Gtk.Label>();
     for (const s of p.segments) {
       if (s.he !== '') body.append(textLabel(sefariaMarkup(s.he), true));
-      if (s.en !== '') body.append(textLabel(sefariaMarkup(s.en), false));
+      const en = textLabel(s.en === '' ? '' : sefariaMarkup(s.en), false);
+      en.visible = s.en !== '';
+      translations.set(s.label, en);
+      body.append(en);
     }
+    if (reader.store.aiOptions() !== null) header.insert_child_after(aiButton(reader, passage, translations, ref), header.get_first_child());
   })();
   return box;
+}
+
+/**
+ * « Traduire (IA) » d'une source : toute la source, avec le verset commenté (segment sélectionné de
+ * l'onglet) en contexte ; la traduction remplace celle de Sefaria.
+ */
+function aiButton(reader: Reader, p: Passage, translations: Map<string, Gtk.Label>, ref: string): Gtk.Widget {
+  const button = new Gtk.Button({ label: 'Traduire', tooltipText: `Traduire ${ref} (IA)`, cssClasses: ['flat', 'small-button'], valign: Gtk.Align.START });
+  const note = new Gtk.Label({ visible: false, xalign: 0, wrap: true, cssClasses: ['caption', 'dim-label'] });
+  // la note s'affiche sous le dernier texte de la source
+  const parent = [...translations.values()].at(-1)?.get_parent();
+  if (parent instanceof Gtk.Box) parent.append(note);
+  button.connect('clicked', () => {
+    const o = reader.store.aiOptions();
+    if (o === null) return;
+    const base = reader.passage.peek();
+    const selected = reader.selected.peek();
+    const segment = base?.state === 'ready' && selected !== null ? base.value.segments.find((s) => segmentRef(base.value, s.label) === selected) : undefined;
+    const commented = selected !== null && segment !== undefined ? { ref: selected, he: segment.he, en: segment.en } : undefined;
+    button.sensitive = false;
+    note.visible = true;
+    note.label = `Traduction en ${languageLabel(o.language)}…`;
+    void (async () => {
+      try {
+        const values = await translate(p, o, new Gio.Cancellable(), commented === undefined ? {} : { commented });
+        for (const [label, l] of translations) {
+          const text = values[label];
+          if (text === undefined) continue;
+          l.label = withDirection(escapeMarkup(text), false);
+          l.visible = true;
+        }
+        note.label = `Traduction par IA (${o.tool === 'claude' ? 'Claude Code' : 'opencode'})`;
+      } catch (error) {
+        note.label = `Traduction impossible : ${errorMessage(error)}`;
+        button.sensitive = true;
+      }
+    })();
+  });
+  return button;
 }
 
 /** Page d'une source : textes de ses références, par lots. */

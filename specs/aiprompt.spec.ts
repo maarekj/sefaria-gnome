@@ -32,4 +32,9 @@ describe('traduction par IA', () => {
     expect(() => parseAiResponse('pas de json', ['1'])).toThrowError(/sans JSON/u);
     expect(() => parseAiResponse('{"9": "x"}', ['1'])).toThrowError(/aucune traduction/u);
   });
+  it('commentaire : verset commenté en contexte, sans notes', () => {
+    const p = buildPrompt(passage, 'french', undefined, { ref: 'Genesis 1:1', he: '<b>בְּרֵאשִׁית</b>', en: 'In the beginning<i class="footnote">n</i>' });
+    expect(p).toContain('Ce texte commente Genesis 1:1');
+    expect(p).toContain('    בְּרֵאשִׁית\n    (traduction existante : In the beginning)');
+  });
 });
