@@ -72,3 +72,27 @@ def test_taille_du_texte(run_app):
     wait_until(lambda: not app.find('button', 'A−').sensitive, 5, 'A− désactivé au minimum')
     app.click('button', 'A+')
     assert app.text_visible('90 %')
+
+
+def test_versions_et_affichage(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    app.point(app.find(None, 'Versions'))
+    # langue : français → traduction par défaut, puis une autre traduction française
+    app.point(app.find('label', 'Français'))
+    assert app.text_visible('Au commencement, Dieu créa le ciel et la terre.')
+    assert any('version=french' in r for r in fake.requests())
+    app.point(app.find('label', "La bible d'André Chouraqui [fr]"))
+    assert app.text_visible('Entête Elohîms créait les ciels et la terre')
+    settings = fake.dir / 'config' / 'sefaria-gnome' / 'settings.json'
+    wait_until(lambda: 'Chouraqui' in settings.read_text() and '"language": "french"' in settings.read_text(), 5, 'choix enregistré')
+    # texte sans traduction française : repli anglais signalé
+    app.key('Escape')
+    app.go_to('Berakhot 2a')
+    assert app.text_visible('The beginning of tractate')
+    app.point(app.find(None, 'Versions'))
+    assert app.text_visible('Pas de traduction en français')
+    # hébreu seul : traduction masquée
+    app.click('toggle button', 'Hébreu')
+    app.text_gone('The beginning of tractate')
+    assert app.text_visible('ברכות')

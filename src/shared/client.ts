@@ -3,12 +3,13 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import * as z from 'zod/mini';
-import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, parseIndex, TextResponse, toPassage } from './api.ts';
+import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, parseIndex, parseVersions, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
 import { HttpError } from './errors.ts';
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
 
 const decoder = new TextDecoder();
+const DEFAULT_WANTED: Wanted = { translation: { language: 'english' } };
 
 /** URL du serveur Sefaria (SEFARIA_GNOME_URL pour les tests : faux serveur). */
 export const serverUrl = (): string => GLib.getenv('SEFARIA_GNOME_URL') ?? DEFAULT_URL;
@@ -44,13 +45,18 @@ export class SefariaClient {
     return parseIndex(await this.get('/api/index'));
   }
 
-  /** Passage `ref` en hébreu et dans la traduction anglaise par défaut ; un livre ouvre sa première section. */
-  async text(ref: string): Promise<Passage> {
-    const fetchRef = async (r: string): Promise<TextResponse> =>
-      z.parse(TextResponse, await this.get(`/api/v3/texts/${encodeURIComponent(r)}?version=hebrew&version=english&return_format=strip_only_footnotes`));
+  /** Passage `ref` dans les versions `wanted` (anglais par défaut) ; un livre ouvre sa première section. */
+  async text(ref: string, wanted: Wanted = DEFAULT_WANTED): Promise<Passage> {
+    const params = versionParams(wanted);
+    const fetchRef = async (r: string): Promise<TextResponse> => z.parse(TextResponse, await this.get(`/api/v3/texts/${encodeURIComponent(r)}?${params}&return_format=strip_only_footnotes`));
     let res = await fetchRef(ref);
     const first = firstSection(res);
     if (first !== null) res = await fetchRef(first);
-    return toPassage(res);
+    return toPassage(res, wanted);
+  }
+
+  /** Versions disponibles d'un livre. */
+  async versions(book: string): Promise<VersionInfo[]> {
+    return parseVersions(await this.get(`/api/texts/versions/${encodeURIComponent(book)}`));
   }
 }

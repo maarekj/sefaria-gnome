@@ -2,6 +2,7 @@
   "Genesis 1": {
     "ref": "Genesis 1",
     "heRef": "בראשית א׳",
+    "indexTitle": "Genesis",
     "sectionRef": "Genesis 1",
     "firstAvailableSectionRef": "Genesis 1",
     "next": "Genesis 2",
@@ -13,6 +14,8 @@
     "versions": [
       {
         "language": "he",
+        "actualLanguage": "he",
+        "languageFamilyName": "hebrew",
         "versionTitle": "Miqra according to the Masorah",
         "direction": "rtl",
         "text": [
@@ -25,6 +28,8 @@
       },
       {
         "language": "en",
+        "actualLanguage": "en",
+        "languageFamilyName": "english",
         "versionTitle": "THE JPS TANAKH: Gender-Sensitive Edition",
         "direction": "ltr",
         "text": [
@@ -34,12 +39,41 @@
           "God saw that the light was good, and God separated the light from the darkness.",
           "God called the light Day—and called the darkness Night. And there was evening and there was morning, a first day."
         ]
+      },
+      {
+        "language": "en",
+        "actualLanguage": "fr",
+        "languageFamilyName": "french",
+        "versionTitle": "Bible du Rabbinat 1899 [fr]",
+        "direction": "ltr",
+        "text": [
+          "Au commencement, Dieu créa le ciel et la terre.",
+          "Or la terre n’était que solitude et chaos; des ténèbres couvraient la face de l’abîme, et le souffle de Dieu planait à la surface des eaux.",
+          "Dieu dit: \"Que la lumière soit!\" Et la lumière fut.",
+          "Dieu considéra que la lumière était bonne, et il établit une distinction entre la lumière et les ténèbres.",
+          "Dieu appela la lumière jour, et les ténèbres, il les appela Nuit. Il fut soir, il fut matin, un jour."
+        ]
+      },
+      {
+        "language": "en",
+        "actualLanguage": "fr",
+        "languageFamilyName": "french",
+        "versionTitle": "La bible d'André Chouraqui [fr]",
+        "direction": "ltr",
+        "text": [
+          "1. Entête Elohîms créait les ciels et la terre,",
+          "2. la terre était tohu-et-bohu une ténèbre sur les faces de l’abîme mais le souffle d’Elohîms planait sur les faces des eaux.",
+          "3. Elohîms dit: « Une lumière sera. Et c’est une lumière.",
+          "4. Elohîms voit la lumière: quel bien ! Elohîms sépare la lumière de la ténèbre.",
+          "5. Elohîms crie à la lumière: « Jour. » À la ténèbre il avait crié: « Nuit. » Et c’est un soir et c’est un matin: jour un."
+        ]
       }
     ]
   },
   "Genesis 2": {
     "ref": "Genesis 2",
     "heRef": "בראשית ב׳",
+    "indexTitle": "Genesis",
     "sectionRef": "Genesis 2",
     "firstAvailableSectionRef": "Genesis 2",
     "next": null,
@@ -51,6 +85,8 @@
     "versions": [
       {
         "language": "he",
+        "actualLanguage": "he",
+        "languageFamilyName": "hebrew",
         "versionTitle": "Miqra according to the Masorah",
         "direction": "rtl",
         "text": [
@@ -63,6 +99,8 @@
       },
       {
         "language": "en",
+        "actualLanguage": "en",
+        "languageFamilyName": "english",
         "versionTitle": "THE JPS TANAKH: Gender-Sensitive Edition",
         "direction": "ltr",
         "text": [
@@ -72,12 +110,27 @@
           "Such is the story of heaven and earth when they were created.<br>When the E<small>TERNAL</small> God made earth and heaven—",
           "when no shrub of the field was yet on earth and no grasses of the field had yet sprouted, because the E<small>TERNAL</small> God had not sent rain upon the earth and there were no human beings to till the soil,"
         ]
+      },
+      {
+        "language": "en",
+        "actualLanguage": "fr",
+        "languageFamilyName": "french",
+        "versionTitle": "Bible du Rabbinat 1899 [fr]",
+        "direction": "ltr",
+        "text": [
+          "Ainsi furent terminés les cieux et la terre, avec tout ce qu’ils renferment.",
+          "Dieu mit fin, le septième jour, à l’œuvre faite par lui; et il se reposa, le septième jour, de toute l’œuvre qu’il avait faite.",
+          "Dieu bénit le septième jour et le proclama saint, parce qu’en ce jour il se reposa de l’œuvre entière qu’il avait produite et organisée.",
+          "Telles sont les origines du ciel et de la terre, lorsqu’ils furent créés; à l’époque où l’Éternel-Dieu fit une terre et un ciel.",
+          "Or, aucun produit des champs ne paraissait encore sur la terre, et aucune herbe des champs ne poussait encore; car l’Éternel-Dieu n’avait pas fait pleuvoir sur la terre, et d’homme, il n’y en avait point pour cultiver la terre."
+        ]
       }
     ]
   },
   "Berakhot 2a": {
     "ref": "Berakhot 2a",
     "heRef": "ברכות ב׳ א",
+    "indexTitle": "Berakhot",
     "sectionRef": "Berakhot 2a",
     "firstAvailableSectionRef": "Berakhot 2a",
     "next": null,
@@ -89,6 +142,8 @@
     "versions": [
       {
         "language": "he",
+        "actualLanguage": "he",
+        "languageFamilyName": "hebrew",
         "versionTitle": "William Davidson Edition - Vocalized Aramaic",
         "direction": "rtl",
         "text": [
@@ -101,6 +156,8 @@
       },
       {
         "language": "en",
+        "actualLanguage": "en",
+        "languageFamilyName": "english",
         "versionTitle": "William Davidson Edition - English",
         "direction": "ltr",
         "text": [

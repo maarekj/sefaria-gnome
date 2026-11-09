@@ -3,18 +3,36 @@ import GLib from 'gi://GLib';
 import { type Accessor, createState, type Setter } from 'gnim';
 import * as z from 'zod/mini';
 
-const RawSettings = z.object({
+/** Textes affichés : hébreu et traduction, hébreu seul, traduction seule. */
+export type Display = 'both' | 'hebrew' | 'translation';
+
+/** Versions choisies pour un livre (titres Sefaria) ; absentes : versions par défaut. */
+export interface BookVersions {
+  readonly hebrew?: string;
+  /** traduction choisie, valable pour sa langue seulement */
+  readonly translation?: { readonly language: string; readonly title: string };
+}
+
+const RawSettings = z.looseObject({
   /** hébreu et traduction côte à côte */
   twoColumns: z.optional(z.boolean()),
   /** échelle du texte lu (1 : taille par défaut), bornée à l'usage */
   textScale: z.optional(z.number().check(z.positive())),
+  display: z.optional(z.enum(['both', 'hebrew', 'translation'])),
+  /** famille de langue de la traduction (« english », « french »…) */
+  language: z.optional(z.string()),
+  books: z.optional(z.record(z.string(), z.object({ hebrew: z.optional(z.string()), translation: z.optional(z.object({ language: z.string(), title: z.string() })) }))),
 });
+
 export interface Settings {
   readonly twoColumns: boolean;
   readonly textScale: number;
+  readonly display: Display;
+  readonly language: string;
+  readonly books: Readonly<Record<string, BookVersions>>;
 }
 
-const DEFAULTS: Settings = { twoColumns: false, textScale: 1 };
+const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', books: {} };
 
 const decoder = new TextDecoder();
 
@@ -25,7 +43,18 @@ export function readSettings(file = settingsFile()): Settings {
   try {
     const [, bytes] = GLib.file_get_contents(file);
     const r = z.safeParse(RawSettings, JSON.parse(decoder.decode(bytes)));
-    if (r.success) return { twoColumns: r.data.twoColumns ?? DEFAULTS.twoColumns, textScale: r.data.textScale ?? DEFAULTS.textScale };
+    if (r.success) {
+      const d = r.data;
+      const books: Record<string, BookVersions> = {};
+      for (const [k, v] of Object.entries(d.books ?? {})) books[k] = { ...(v.hebrew === undefined ? {} : { hebrew: v.hebrew }), ...(v.translation === undefined ? {} : { translation: v.translation }) };
+      return {
+        twoColumns: d.twoColumns ?? DEFAULTS.twoColumns,
+        textScale: d.textScale ?? DEFAULTS.textScale,
+        display: d.display ?? DEFAULTS.display,
+        language: d.language ?? DEFAULTS.language,
+        books,
+      };
+    }
   } catch {
     // absent ou illisible
   }
@@ -56,5 +85,11 @@ export class SettingsStore {
     } catch (error) {
       console.error(`réglages non enregistrés : ${String(error)}`);
     }
+  }
+
+  /** Modifie les versions choisies pour `book`. */
+  updateBook(book: string, patch: Partial<BookVersions>): void {
+    const books = this.value.peek().books;
+    this.update({ books: { ...books, [book]: { ...books[book], ...patch } } });
   }
 }

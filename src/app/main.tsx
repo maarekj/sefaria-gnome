@@ -6,6 +6,7 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import { createRoot } from 'gnim';
 import { SefariaClient } from '../shared/client.ts';
+import { bookOf } from '../shared/api.ts';
 import { SettingsStore } from '../shared/settings.ts';
 import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
@@ -18,8 +19,17 @@ export const APP_ID = GLib.getenv('SEFARIA_GNOME_APP_ID') ?? 'io.github.maarekj.
 
 const app = new Adw.Application({ applicationId: APP_ID, flags: Gio.ApplicationFlags.DEFAULT_FLAGS });
 Gtk.Window.set_default_icon_name(APP_ID);
-const store = new Store(new SefariaClient());
 const settings = new SettingsStore();
+const store = new Store(new SefariaClient(), (ref) => {
+  const s = settings.value.peek();
+  const book = bookOf(ref, s.books);
+  const chosen = book === undefined ? undefined : s.books[book];
+  const tr = chosen?.translation;
+  // traduction choisie dans la langue préférée ; choisie dans une autre langue (livre sans la
+  // langue préférée) : elle sert de repli pour ce livre seulement
+  if (tr?.language === s.language) return { translation: tr, hebrew: chosen?.hebrew };
+  return { translation: { language: s.language }, fallback: tr, hebrew: chosen?.hebrew };
+});
 let mainWindow: Gtk.Window | null = null;
 
 // ------------------------------------------------------------------ actions

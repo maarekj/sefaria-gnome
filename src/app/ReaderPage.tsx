@@ -5,9 +5,10 @@ import Pango from 'gi://Pango';
 import { createComputed, createState, onCleanup } from 'gnim';
 import type { Passage, Segment } from '../shared/api.ts';
 import { sefariaMarkup } from '../shared/markup.ts';
-import type { SettingsStore } from '../shared/settings.ts';
+import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Store } from '../shared/store.ts';
 import { scaleLabel } from './TextScale.ts';
+import { versionsMenu } from './VersionsMenu.ts';
 
 /** Largeur de texte minimale (px) pour afficher deux colonnes ; en dessous : empilé. */
 export const TWO_COLUMNS_MIN_WIDTH = 700;
@@ -47,27 +48,47 @@ function segmentColumns(s: Segment): Gtk.Widget {
   return row;
 }
 
-function segmentRow(s: Segment): Gtk.Widget {
+/** Segment empilé ; hébreu seul : numéro en marge droite. */
+function segmentRow(s: Segment, display: Display): Gtk.Widget {
   const row = new Gtk.Box({ spacing: 12, cssClasses: ['segment'] });
-  row.append(new Gtk.Label({ label: s.label, valign: Gtk.Align.START, xalign: 0, cssClasses: ['segment-number', 'dim-label'] }));
+  const number = new Gtk.Label({ label: s.label, valign: Gtk.Align.START, xalign: display === 'hebrew' ? 1 : 0, cssClasses: ['segment-number', 'dim-label'] });
   const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true });
-  if (s.he !== '') texts.append(textLabel(sefariaMarkup(s.he), true));
-  if (s.en !== '') texts.append(textLabel(sefariaMarkup(s.en), false));
+  if (s.he !== '' && display !== 'translation') texts.append(textLabel(sefariaMarkup(s.he), true));
+  if (s.en !== '' && display !== 'hebrew') texts.append(textLabel(sefariaMarkup(s.en), false));
+  if (display !== 'hebrew') row.append(number);
   row.append(texts);
+  if (display === 'hebrew') row.append(number);
   return row;
 }
 
-function fill(box: Gtk.Box, p: Passage, columns: boolean): void {
+/** Mise en page : textes affichés, deux colonnes (seulement avec les deux textes). */
+interface Layout {
+  readonly display: Display;
+  readonly columns: boolean;
+}
+
+function fill(box: Gtk.Box, p: Passage, layout: Layout): void {
   for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
-  for (const s of p.segments) box.append(columns ? segmentColumns(s) : segmentRow(s));
-  const versions = [p.heVersion, p.enVersion].filter((v) => v !== '').join(' · ');
+  const { display } = layout;
+  // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
+  const shown: Display = display === 'translation' && p.enVersion === '' ? 'hebrew' : display === 'hebrew' && p.heVersion === '' ? 'translation' : display;
+  for (const s of p.segments) {
+    if (shown === 'hebrew' && s.he === '') continue;
+    if (shown === 'translation' && s.en === '') continue;
+    box.append(layout.columns && shown === 'both' ? segmentColumns(s) : segmentRow(s, shown));
+  }
+  const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : p.enVersion].filter((v) => v !== '').join(' · ');
   if (versions !== '') box.append(new Gtk.Label({ label: versions, wrap: true, marginTop: 18, cssClasses: ['caption', 'dim-label'] }));
 }
 
 export function ReaderPage({ store, settings }: { store: Store; settings: SettingsStore }): JSX.Element {
   /** largeur disponible pour le texte (repli en mode empilé si trop étroit) */
   const [width, setWidth] = createState(10_000);
-  const columns = createComputed(() => settings.value().twoColumns && width() >= TWO_COLUMNS_MIN_WIDTH);
+  const columns = createComputed(() => settings.value().twoColumns && settings.value().display === 'both' && width() >= TWO_COLUMNS_MIN_WIDTH);
+  const display = createComputed(() => settings.value().display);
+  const layout = (): Layout => ({ display: display.peek(), columns: columns.peek() });
+  const versions = versionsMenu(store, settings);
+  onCleanup(versions.dispose);
   const ready = (): Passage | null => {
     const p = store.passage.peek();
     return p?.state === 'ready' ? p.value : null;
@@ -102,6 +123,7 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
             title={store.passage((p) => (p?.state === 'ready' ? p.value.ref : 'Sefaria'))}
             subtitle={store.passage((p) => (p?.state === 'ready' ? p.value.heRef : ''))}
           />
+          <Gtk.Box $type="end" $={(self: Gtk.Box) => self.append(versions.button)} />
           <Gtk.MenuButton $type="end" label="Aa" tooltipText="Taille du texte">
             <Gtk.Popover>
               <Gtk.Box spacing={6} cssClasses={['text-scale']}>
@@ -116,6 +138,7 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
             iconName="view-dual-symbolic"
             tooltipText="Deux colonnes"
             active={settings.value((s) => s.twoColumns)}
+            sensitive={settings.value((s) => s.display === 'both')}
             onToggled={(self: Gtk.ToggleButton) => {
               if (self.active !== settings.value.peek().twoColumns) settings.update({ twoColumns: self.active });
             }}
@@ -182,17 +205,17 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
                     store.passage.subscribe(() => {
                       const p = ready();
                       if (p === null) return;
-                      fill(self, p, columns.peek());
+                      fill(self, p, layout());
                       scroller?.vadjustment.set_value(0);
                     }),
                   );
                   // changement de mode : même passage, même position de défilement
-                  onCleanup(
-                    columns.subscribe(() => {
-                      const p = ready();
-                      if (p !== null) fill(self, p, columns.peek());
-                    }),
-                  );
+                  const relayout = (): void => {
+                    const p = ready();
+                    if (p !== null) fill(self, p, layout());
+                  };
+                  onCleanup(columns.subscribe(relayout));
+                  onCleanup(display.subscribe(relayout));
                 }}
               />
             </Adw.Clamp>
