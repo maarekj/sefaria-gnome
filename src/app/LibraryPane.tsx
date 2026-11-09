@@ -3,7 +3,7 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 import { onCleanup } from 'gnim';
-import type { Book, Category, LibraryNode, Toc, TocNode, TocSection } from '../shared/api.ts';
+import type { Book, Category, LibraryNode, Parasha, Toc, TocNode, TocSection } from '../shared/api.ts';
 import { errorMessage } from '../shared/errors.ts';
 import type { Store } from '../shared/store.ts';
 
@@ -56,14 +56,47 @@ function sectionGrid(sections: readonly TocSection[], store: Store): Gtk.Widget 
   return flow;
 }
 
+const ORDINALS = ['1re', '2e', '3e', '4e', '5e', '6e', '7e'];
+
+/** Page d'une paracha : passage entier, puis ses montées. */
+function parashaPage(p: Parasha, store: Store): Adw.NavigationPage {
+  const list = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['navigation-sidebar'] });
+  list.append(row('Paracha entière', p.ref, false, () => store.open(p.ref)));
+  p.aliyot.forEach((ref, i) => list.append(row(`${ORDINALS[i] ?? `${i + 1}e`} montée`, ref, false, () => store.open(ref))));
+  return page(p.name, scrolled(list));
+}
+
+/** Livre de la Torah : bascule chapitres / parachiot. */
+function withParashot(chapters: Gtk.Widget, parashot: readonly Parasha[], store: Store, push: (p: Adw.NavigationPage) => void): Gtk.Widget {
+  const list = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['navigation-sidebar'] });
+  for (const p of parashot) list.append(row(p.name, p.heName, true, () => push(parashaPage(p, store))));
+  const stack = new Gtk.Stack({ vexpand: true });
+  stack.add_named(chapters, 'chapters');
+  stack.add_named(scrolled(list), 'parashot');
+  const switcher = new Gtk.Box({ cssClasses: ['linked'], homogeneous: true, halign: Gtk.Align.CENTER, marginTop: 8, marginBottom: 4 });
+  let group: Gtk.ToggleButton | null = null;
+  for (const [name, label] of [['chapters', 'Chapitres'], ['parashot', 'Parachiot']] as const) {
+    const b = new Gtk.ToggleButton({ label, active: name === 'chapters', ...(group === null ? {} : { group }) });
+    group ??= b;
+    b.connect('toggled', () => {
+      if (b.active) stack.visibleChildName = name;
+    });
+    switcher.append(b);
+  }
+  const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
+  box.append(switcher);
+  box.append(stack);
+  return box;
+}
+
 function tocContent(toc: Toc, store: Store, push: (p: Adw.NavigationPage) => void): Gtk.Widget {
   if (toc.kind === 'sections') {
     if (toc.sections.length === 0) return new Adw.StatusPage({ iconName: 'dialog-information-symbolic', title: 'Aucune section' });
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
     const name = SECTION_NAMES[toc.sectionName] ?? toc.sectionName;
-    if (name !== '') box.append(new Gtk.Label({ label: name, xalign: 0, marginTop: 8, marginStart: 14, cssClasses: ['heading', 'dim-label'] }));
+    if (name !== '' && toc.parashot.length === 0) box.append(new Gtk.Label({ label: name, xalign: 0, marginTop: 8, marginStart: 14, cssClasses: ['heading', 'dim-label'] }));
     box.append(sectionGrid(toc.sections, store));
-    return scrolled(box);
+    return toc.parashot.length === 0 ? scrolled(box) : withParashot(scrolled(box), toc.parashot, store, push);
   }
   const list = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['navigation-sidebar'] });
   for (const n of toc.nodes) list.append(row(n.title, n.heTitle, n.sections !== null, () => nodeActivated(n, store, push)));

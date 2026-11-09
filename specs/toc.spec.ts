@@ -12,11 +12,17 @@ describe('parseToc', () => {
     expect(parseToc('Genesis', [{ title: 'Genesis', chapters: [31, 0, 24] }], schema(['Perek', 'Pasuk'], ['Chapter', 'Verse']))).toEqual({
       kind: 'sections',
       sectionName: 'Chapter',
+      parashot: [],
       sections: [
         { label: '1', ref: 'Genesis 1' },
         { label: '3', ref: 'Genesis 3' },
       ],
     });
+  });
+  it('Torah : parachiot et montées', () => {
+    const index = { schema: { addressTypes: ['Perek', 'Pasuk'], sectionNames: ['Chapter', 'Verse'] }, alt_structs: { Parasha: { nodes: [{ sharedTitle: 'Noach', wholeRef: 'Genesis 6:9-11:32', refs: ['Genesis 6:9-6:22'] }, { bad: 1 }] } } };
+    const toc = parseToc('Genesis', [{ title: 'Genesis', chapters: [1] }], index);
+    expect(toc.kind === 'sections' ? toc.parashot : []).toEqual([{ name: 'Noach', heName: 'נח', ref: 'Genesis 6:9-11:32', aliyot: ['Genesis 6:9-6:22'] }]);
   });
   it('Talmud : sections vides 1a / 1b ignorées', () => {
     const toc = parseToc('Berakhot', [{ title: 'Berakhot', chapters: [0, 0, 14, 19] }], schema(['Talmud', 'Integer'], ['Daf', 'Line']));

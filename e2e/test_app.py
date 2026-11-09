@@ -123,3 +123,18 @@ def test_table_des_matieres(run_app):
     app.point(app.find('label', 'Pesach Haggadah'))
     app.point(app.find('label', 'Magid, Ha Lachma Anya'))
     wait_until(lambda: any('Pesach%20Haggadah%2C%20Magid%2C%20Ha%20Lachma%20Anya' in r for r in fake.requests()), 5, 'partie ouverte')
+
+
+def test_paracha_et_montee(run_app):
+    fake, app = run_app()
+    app.point(app.find('label', 'Tanakh'))
+    app.point(app.find('label', 'Torah'))
+    app.point(app.find('label', 'Genesis'))
+    app.click('toggle button', 'Parachiot')
+    app.point(app.find('label', 'Noach'))
+    assert app.text_visible('Paracha entière')
+    app.point(app.find('label', '3e montée'))
+    # passage sur deux chapitres : numéros chapitre:verset
+    assert app.text_visible('The Flood continued forty days')
+    assert app.has('label', '7:17') and app.has('label', '8:1')
+    assert any('Genesis%207%3A17-8%3A14' in r for r in fake.requests())

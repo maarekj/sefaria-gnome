@@ -112,25 +112,50 @@ export function firstSection(r: TextResponse): string | null {
 }
 
 /** Segments d'une version, à plat, avec leur numéro (« 3 », ou « 2:5 » pour plusieurs sections). */
-function flatten(content: Content, start: number, prefix: string, out: Map<string, string>): void {
+/** Profondeur d'imbrication d'un contenu (0 : chaîne, 1 : liste de segments…). */
+function nesting(content: Content): number {
+  if (typeof content === 'string') return 0;
+  const first = content.find((c) => typeof c !== 'string' || c !== '');
+  return 1 + (first === undefined ? 0 : nesting(first));
+}
+
+/**
+ * Segments d'une version, à plat, numérotés : « 3 » dans une section, « 3:22 » quand le passage
+ * couvre plusieurs sections. `starts` : premier numéro de chaque niveau (seulement pour la première
+ * branche : les sections suivantes recommencent à 1).
+ */
+function flatten(content: Content, starts: readonly number[], level: number, first: boolean, prefix: string, out: Map<string, string>): void {
   if (typeof content === 'string') {
-    out.set(prefix === '' ? String(start) : prefix, content);
+    out.set(prefix, content);
     return;
   }
   content.forEach((c, i) => {
-    const n = String(start + i);
-    if (typeof c === 'string') out.set(prefix === '' ? n : `${prefix}:${n}`, c);
-    else flatten(c, 1, prefix === '' ? n : `${prefix}:${n}`, out);
+    const n = String((first ? (starts[level] ?? 1) : 1) + i);
+    flatten(c, starts, level + 1, first && i === 0, prefix === '' ? n : `${prefix}:${n}`, out);
   });
 }
 
-/** Numéro du premier segment de la réponse (dernière section précisée dans la référence). */
-function startOf(r: TextResponse): number {
-  const sections = r.sections ?? [];
-  if (sections.length < (r.textDepth ?? 2)) return 1;
-  // « 5 », ou « 2a » (daf du Talmud) : numéro en tête
-  const digits = /^\d+/u.exec(String(sections.at(-1) ?? ''));
+/** Numéro en tête d'une section (« 5 », « 2a » → 2), sinon 1. */
+const sectionNumber = (s: string | number | undefined): number => {
+  const digits = /^\d+/u.exec(String(s ?? ''));
   return digits === null ? 1 : Number(digits[0]);
+};
+
+/** Segments d'une version de la réponse `r`. */
+function segmentsOf(r: TextResponse, content: Content): Map<string, string> {
+  const out = new Map<string, string>();
+  const sections = r.sections ?? [];
+  const depth = r.textDepth ?? 2;
+  const n = nesting(content);
+  if (n === 0) {
+    out.set(String(sectionNumber(sections.at(-1))), typeof content === 'string' ? content : '');
+    return out;
+  }
+  // niveaux couverts par le contenu : les `n` derniers du texte
+  const top = Math.max(0, depth - n);
+  const starts = Array.from({ length: n }, (_, k) => sectionNumber(sections[top + k]));
+  flatten(content, starts, 0, true, '', out);
+  return out;
 }
 
 /** Famille de langue d'une version (anciennes réponses : déduite de `language`). */
@@ -159,11 +184,8 @@ export function toPassage(r: TextResponse, wanted: Wanted = ENGLISH): Passage {
     return all.find((v) => v.versionTitle === c.title) ?? all[0];
   };
   const en = inLanguage(wanted.translation) ?? inLanguage(wanted.fallback ?? { language: 'english' }) ?? others[0];
-  const start = startOf(r);
-  const heMap = new Map<string, string>();
-  const enMap = new Map<string, string>();
-  if (he !== undefined) flatten(he.text, start, '', heMap);
-  if (en !== undefined) flatten(en.text, start, '', enMap);
+  const heMap = he === undefined ? new Map<string, string>() : segmentsOf(r, he.text);
+  const enMap = en === undefined ? new Map<string, string>() : segmentsOf(r, en.text);
   // ordre de la version hébraïque, puis segments présents seulement dans la traduction
   const labels = [...new Set([...heMap.keys(), ...enMap.keys()])];
   return {
@@ -261,13 +283,34 @@ export interface TocNode {
   readonly sections: readonly TocSection[] | null;
 }
 
-export type Toc = { readonly kind: 'sections'; readonly sectionName: string; readonly sections: readonly TocSection[] } | { readonly kind: 'nodes'; readonly nodes: readonly TocNode[] };
+/** Paracha d'un livre de la Torah : passage entier et ses montées (alyiot). */
+export interface Parasha {
+  readonly name: string;
+  readonly heName: string;
+  readonly ref: string;
+  readonly aliyot: readonly string[];
+}
+
+export type Toc =
+  | { readonly kind: 'sections'; readonly sectionName: string; readonly sections: readonly TocSection[]; readonly parashot: readonly Parasha[] }
+  | { readonly kind: 'nodes'; readonly nodes: readonly TocNode[] };
+
+/** Noms hébreux des parachiot (Sefaria ne les donne que par une requête par nom). */
+const PARASHOT_HE: Readonly<Record<string, string>> = {
+  Bereshit: 'בראשית', Noach: 'נח', 'Lech Lecha': 'לך לך', Vayera: 'וירא', 'Chayei Sara': 'חיי שרה', Toldot: 'תולדות', Vayetzei: 'ויצא', Vayishlach: 'וישלח', Vayeshev: 'וישב', Miketz: 'מקץ', Vayigash: 'ויגש', Vayechi: 'ויחי',
+  Shemot: 'שמות', Vaera: 'וארא', Bo: 'בא', Beshalach: 'בשלח', Yitro: 'יתרו', Mishpatim: 'משפטים', Terumah: 'תרומה', Tetzaveh: 'תצוה', 'Ki Tisa': 'כי תשא', Vayakhel: 'ויקהל', Pekudei: 'פקודי',
+  Vayikra: 'ויקרא', Tzav: 'צו', Shmini: 'שמיני', Tazria: 'תזריע', Metzora: 'מצורע', 'Achrei Mot': 'אחרי מות', Kedoshim: 'קדושים', Emor: 'אמור', Behar: 'בהר', Bechukotai: 'בחקתי',
+  Bamidbar: 'במדבר', Nasso: 'נשא', "Beha'alotcha": 'בהעלתך', "Sh'lach": 'שלח', Korach: 'קרח', Chukat: 'חקת', Balak: 'בלק', Pinchas: 'פינחס', Matot: 'מטות', Masei: 'מסעי',
+  Devarim: 'דברים', Vaetchanan: 'ואתחנן', Eikev: 'עקב', "Re'eh": 'ראה', Shoftim: 'שופטים', 'Ki Teitzei': 'כי תצא', 'Ki Tavo': 'כי תבוא', Nitzavim: 'נצבים', Vayeilech: 'וילך', "Ha'Azinu": 'האזינו', "V'Zot HaBerachah": 'וזאת הברכה',
+};
 
 /** Nombres de segments par section (0 : section vide) ou nombre de segments d'un nœud sans section. */
 const ShapeChapters = z.union([z.number(), z.array(z.union([z.number(), z.null()]))]);
 const ShapeLeaf = z.looseObject({ title: z.string(), heTitle: z.optional(z.nullable(z.string())), heBook: z.optional(z.nullable(z.string())), chapters: ShapeChapters });
 const Shape = z.array(z.looseObject({ title: z.optional(z.nullable(z.string())), isComplex: z.optional(z.nullable(z.boolean())), chapters: z.union([ShapeChapters, z.array(z.unknown())]) }));
+const RawParasha = z.looseObject({ sharedTitle: z.string(), wholeRef: z.string(), refs: z.array(z.string()) });
 const RawIndex = z.looseObject({
+  alt_structs: z.optional(z.nullable(z.looseObject({ Parasha: z.optional(z.looseObject({ nodes: z.array(z.unknown()) })) }))),
   schema: z.looseObject({ addressTypes: z.optional(z.nullable(z.array(z.string()))), sectionNames: z.optional(z.nullable(z.array(z.string()))) }),
 });
 
@@ -289,7 +332,7 @@ const shortTitle = (book: string, title: string, sep = ', '): string => (title.s
 /** Table des matières à partir de la forme (`/api/shape/{titre}`) et du schéma (`/api/v2/raw/index/{titre}`). */
 export function parseToc(book: string, rawShape: unknown, rawIndex: unknown): Toc {
   const shape = z.parse(Shape, rawShape)[0];
-  if (shape === undefined) return { kind: 'sections', sectionName: '', sections: [] };
+  if (shape === undefined) return { kind: 'sections', sectionName: '', sections: [], parashot: [] };
   const schema = z.safeParse(RawIndex, rawIndex);
   const addressTypes = schema.success ? (schema.data.schema.addressTypes ?? []) : [];
   const talmud = addressTypes[0] === 'Talmud';
@@ -297,7 +340,11 @@ export function parseToc(book: string, rawShape: unknown, rawIndex: unknown): To
   const { chapters } = shape;
   if (shape.isComplex !== true) {
     const counts = z.safeParse(z.array(z.union([z.number(), z.null()])), chapters);
-    return { kind: 'sections', sectionName, sections: counts.success ? sectionsOf(book, counts.data, talmud) : [] };
+    const parashot = (schema.success ? (schema.data.alt_structs?.Parasha?.nodes ?? []) : []).flatMap((n) => {
+      const r = z.safeParse(RawParasha, n);
+      return r.success ? [{ name: r.data.sharedTitle, heName: PARASHOT_HE[r.data.sharedTitle] ?? '', ref: r.data.wholeRef, aliyot: r.data.refs }] : [];
+    });
+    return { kind: 'sections', sectionName, sections: counts.success ? sectionsOf(book, counts.data, talmud) : [], parashot };
   }
   const leaves = z.parse(z.array(z.unknown()), chapters).flatMap((c) => {
     const r = z.safeParse(ShapeLeaf, c);

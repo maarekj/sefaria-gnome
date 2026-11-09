@@ -33,6 +33,10 @@ describe('toPassage', () => {
     const p = toPassage(text({ ref: 'Genesis 1-2', sections: [], textDepth: 2, versions: [version('he', [['a', 'b'], ['c']])] }));
     expect(p.segments.map((s) => s.label)).toEqual(['1:1', '1:2', '2:1']);
   });
+  it('passage sur plusieurs chapitres : chapitre:verset, versets recommencés à 1', () => {
+    const p = toPassage(text({ ref: 'Genesis 7:23-8:2', sections: ['7', '23'], textDepth: 2, versions: [version('he', [['a', 'b'], ['c', 'd']])] }));
+    expect(p.segments.map((s) => s.label)).toEqual(['7:23', '7:24', '8:1', '8:2']);
+  });
   it('segments vides retirés', () => {
     expect(toPassage(text({ ref: 'X 1', sections: ['1'], textDepth: 2, versions: [version('he', ['a', '']), version('en', ['', ''])] })).segments.length).toBe(1);
   });
