@@ -4,6 +4,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Pango from 'gi://Pango';
 import { createComputed, createState, onCleanup } from 'gnim';
 import type { Passage, Segment } from '../shared/api.ts';
+import { chapterTitle, passageItems } from '../shared/chapters.ts';
 import { sefariaMarkup } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Store } from '../shared/store.ts';
@@ -36,22 +37,34 @@ function textLabel(markup: string, hebrew: boolean): Gtk.Label {
 
 /** Segment en deux colonnes, face à face : hébreu à gauche (aligné à droite), numéro au centre,
  * traduction à droite (alignée à gauche). */
-function segmentColumns(s: Segment): Gtk.Widget {
+function segmentColumns(s: Segment, number: string): Gtk.Widget {
   const row = new Gtk.Box({ homogeneous: true, spacing: 24, cssClasses: ['segment', 'two-columns'] });
   const en = new Gtk.Box({ valign: Gtk.Align.START });
   if (s.en !== '') en.append(textLabel(sefariaMarkup(s.en), false));
   const he = new Gtk.Box({ spacing: 12, valign: Gtk.Align.START });
   he.append(s.he === '' ? new Gtk.Box({ hexpand: true }) : textLabel(sefariaMarkup(s.he), true));
-  he.append(new Gtk.Label({ label: s.label, valign: Gtk.Align.START, xalign: 1, cssClasses: ['segment-number', 'dim-label'] }));
+  he.append(new Gtk.Label({ label: number, valign: Gtk.Align.START, xalign: 1, cssClasses: ['segment-number', 'dim-label'] }));
   row.append(he);
   row.append(en);
   return row;
 }
 
+/** Titre de chapitre : français à gauche, hébreu à droite (selon les textes affichés). */
+function chapterHeading(chapter: string, shown: Display, columns: boolean): Gtk.Widget | null {
+  const t = chapterTitle(chapter);
+  const fr = shown === 'hebrew' ? null : new Gtk.Label({ label: t.fr, xalign: 0, hexpand: true, cssClasses: ['title-3'] });
+  const he = shown === 'translation' || t.he === '' ? null : new Gtk.Label({ label: t.he, xalign: 1, hexpand: true, cssClasses: ['title-3', 'hebrew-heading'] });
+  if (fr === null && he === null) return null;
+  // deux colonnes : chaque titre au-dessus de sa colonne (hébreu à gauche, aligné à droite)
+  const row = new Gtk.Box({ spacing: 24, homogeneous: columns, cssClasses: ['chapter-heading'] });
+  for (const l of columns ? [he, fr] : [fr, he]) if (l !== null) row.append(l);
+  return row;
+}
+
 /** Segment empilé ; hébreu seul : numéro en marge droite. */
-function segmentRow(s: Segment, display: Display): Gtk.Widget {
+function segmentRow(s: Segment, display: Display, label: string): Gtk.Widget {
   const row = new Gtk.Box({ spacing: 12, cssClasses: ['segment'] });
-  const number = new Gtk.Label({ label: s.label, valign: Gtk.Align.START, xalign: display === 'hebrew' ? 1 : 0, cssClasses: ['segment-number', 'dim-label'] });
+  const number = new Gtk.Label({ label, valign: Gtk.Align.START, xalign: display === 'hebrew' ? 1 : 0, cssClasses: ['segment-number', 'dim-label'] });
   const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true });
   if (s.he !== '' && display !== 'translation') texts.append(textLabel(sefariaMarkup(s.he), true));
   if (s.en !== '' && display !== 'hebrew') texts.append(textLabel(sefariaMarkup(s.en), false));
@@ -72,10 +85,14 @@ function fill(box: Gtk.Box, p: Passage, layout: Layout): void {
   const { display } = layout;
   // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
   const shown: Display = display === 'translation' && p.enVersion === '' ? 'hebrew' : display === 'hebrew' && p.heVersion === '' ? 'translation' : display;
-  for (const s of p.segments) {
-    if (shown === 'hebrew' && s.he === '') continue;
-    if (shown === 'translation' && s.en === '') continue;
-    box.append(layout.columns && shown === 'both' ? segmentColumns(s) : segmentRow(s, shown));
+  const visible = p.segments.filter((s) => !(shown === 'hebrew' && s.he === '') && !(shown === 'translation' && s.en === ''));
+  for (const item of passageItems(visible, p.multiChapter)) {
+    if (item.kind === 'chapter') {
+      const heading = chapterHeading(item.chapter, shown, layout.columns && shown === 'both');
+      if (heading !== null) box.append(heading);
+      continue;
+    }
+    box.append(layout.columns && shown === 'both' ? segmentColumns(item.segment, item.number) : segmentRow(item.segment, shown, item.number));
   }
   const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : p.enVersion].filter((v) => v !== '').join(' · ');
   if (versions !== '') box.append(new Gtk.Label({ label: versions, wrap: true, marginTop: 18, cssClasses: ['caption', 'dim-label'] }));

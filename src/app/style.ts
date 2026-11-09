@@ -37,6 +37,19 @@ export const STYLESHEET = `
   background: var(--accent-bg-color);
   color: var(--accent-fg-color);
 }
+.chapter-heading {
+  margin: 22px 4px 6px 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid alpha(currentColor, 0.15);
+}
+.chapter-heading:first-child {
+  margin-top: 4px;
+}
+.hebrew-heading {
+  font-family: "${HEBREW_FONT}", serif;
+  font-size: 1.35em;
+  font-weight: bold;
+}
 .ref-entry {
   min-width: 160px;
 }

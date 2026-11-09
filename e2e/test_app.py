@@ -136,5 +136,6 @@ def test_paracha_et_montee(run_app):
     app.point(app.find('label', '3e montée'))
     # passage sur deux chapitres : numéros chapitre:verset
     assert app.text_visible('The Flood continued forty days')
-    assert app.has('label', '7:17') and app.has('label', '8:1')
+    assert app.text_visible('Chapitre 7') and app.text_visible('Chapitre 8')
+    assert app.has('label', 'פרק ח׳') and app.has('label', '17') and not app.has('label', '7:17')
     assert any('Genesis%207%3A17-8%3A14' in r for r in fake.requests())

@@ -36,6 +36,9 @@ describe('toPassage', () => {
   it('passage sur plusieurs chapitres : chapitre:verset, versets recommencés à 1', () => {
     const p = toPassage(text({ ref: 'Genesis 7:23-8:2', sections: ['7', '23'], textDepth: 2, versions: [version('he', [['a', 'b'], ['c', 'd']])] }));
     expect(p.segments.map((s) => s.label)).toEqual(['7:23', '7:24', '8:1', '8:2']);
+    expect(p.multiChapter).toBeTrue();
+    // commentaire à trois niveaux : verset:commentaire, pas de chapitres
+    expect(toPassage(text({ ref: 'Rashi on Genesis 1', sections: ['1'], textDepth: 3, versions: [version('he', [['a'], ['b']])] })).multiChapter).toBeFalse();
   });
   it('segments vides retirés', () => {
     expect(toPassage(text({ ref: 'X 1', sections: ['1'], textDepth: 2, versions: [version('he', ['a', '']), version('en', ['', ''])] })).segments.length).toBe(1);

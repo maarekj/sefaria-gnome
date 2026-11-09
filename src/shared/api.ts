@@ -102,6 +102,8 @@ export interface Passage {
   readonly heVersion: string;
   readonly enVersion: string;
   readonly segments: readonly Segment[];
+  /** le passage couvre plusieurs chapitres d'un texte à deux niveaux (numéros « chapitre:verset ») */
+  readonly multiChapter: boolean;
 }
 
 /** Livre entier demandé (pas de section) : section à ouvrir à la place, sinon null. */
@@ -184,6 +186,10 @@ export function toPassage(r: TextResponse, wanted: Wanted = ENGLISH): Passage {
     return all.find((v) => v.versionTitle === c.title) ?? all[0];
   };
   const en = inLanguage(wanted.translation) ?? inLanguage(wanted.fallback ?? { language: 'english' }) ?? others[0];
+  const n = Math.max(he === undefined ? 0 : nesting(he.text), en === undefined ? 0 : nesting(en.text));
+  // seuls les textes à deux niveaux (chapitre, verset) ont des chapitres à titrer ; un commentaire
+  // (verset:commentaire) non
+  const multiChapter = (r.textDepth ?? 2) === 2 && n === 2;
   const heMap = he === undefined ? new Map<string, string>() : segmentsOf(r, he.text);
   const enMap = en === undefined ? new Map<string, string>() : segmentsOf(r, en.text);
   // ordre de la version hébraïque, puis segments présents seulement dans la traduction
@@ -197,6 +203,7 @@ export function toPassage(r: TextResponse, wanted: Wanted = ENGLISH): Passage {
     prev: r.prev ?? null,
     heVersion: he?.versionTitle ?? '',
     enVersion: en?.versionTitle ?? '',
+    multiChapter,
     segments: labels.map((label) => ({ label, he: heMap.get(label) ?? '', en: enMap.get(label) ?? '' })).filter((s) => s.he !== '' || s.en !== ''),
   };
 }
