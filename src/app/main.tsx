@@ -11,6 +11,7 @@ import { SettingsStore } from '../shared/settings.ts';
 import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
+import type { Tabs } from './Tabs.ts';
 import { STYLESHEET } from './style.ts';
 import { canGrow, canShrink, scaleCss, stepScale } from './TextScale.ts';
 
@@ -31,6 +32,7 @@ const store = new Store(new SefariaClient(), (ref) => {
   return { translation: { language: s.language }, fallback: tr, hebrew: chosen?.hebrew };
 });
 let mainWindow: Gtk.Window | null = null;
+let tabs: Tabs | null = null;
 
 // ------------------------------------------------------------------ actions
 
@@ -80,11 +82,23 @@ const applyScale = (): void => {
 applyScale();
 settings.value.subscribe(applyScale);
 
+/** app.new-tab (Ctrl+T) / app.close-tab (Ctrl+W ; le dernier onglet redevient vide) */
+const newTab = new Gio.SimpleAction({ name: 'new-tab' });
+newTab.connect('activate', () => {
+  tabs?.newTab();
+  if (mainWindow !== null) focusRefEntry(mainWindow);
+});
+app.add_action(newTab);
+app.set_accels_for_action('app.new-tab', ['<Control>t']);
+const closeTab = new Gio.SimpleAction({ name: 'close-tab' });
+closeTab.connect('activate', () => tabs?.closeCurrent());
+app.add_action(closeTab);
+app.set_accels_for_action('app.close-tab', ['<Control>w']);
+
 const quit = new Gio.SimpleAction({ name: 'quit' });
 quit.connect('activate', () => app.quit());
 app.add_action(quit);
 app.set_accels_for_action('app.quit', ['<Control>q']);
-app.set_accels_for_action('window.close', ['<Control>w']);
 
 // ------------------------------------------------------------------ fenêtre
 
@@ -113,13 +127,22 @@ app.connect('activate', () => {
   store.loadLibrary();
   // référence ouverte au démarrage (captures, tests)
   const initial = GLib.getenv('SEFARIA_GNOME_REF');
-  if (initial !== null) store.open(initial);
   createRoot((dispose) => {
-    const win = MainWindow({ app, store, settings });
+    const win = MainWindow({
+      app,
+      store,
+      settings,
+      ready: (t) => {
+        tabs = t;
+        if (initial !== null) t.open(initial);
+      },
+    });
     if (!(win instanceof Gtk.Window)) throw new TypeError('fenêtre attendue');
     mainWindow = win;
     win.connect('close-request', () => {
       mainWindow = null;
+      tabs?.dispose();
+      tabs = null;
       dispose();
       return false;
     });

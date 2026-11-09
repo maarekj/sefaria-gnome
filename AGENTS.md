@@ -8,10 +8,12 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
 - `src/shared/api.ts` : **contrat** avec l'API Sefaria (schémas zod/mini de `/api/index` et
   `/api/v3/texts/{ref}`, conversion en `LibraryNode` / `Passage`) ; sans dépendance à GJS ni à Node
   (importé aussi par le faux serveur).
-- `src/shared/` (GJS) : client libsoup 3 (`client.ts`), état réactif (`store.ts`), HTML de Sefaria →
-  balisage Pango (`markup.ts` : notes de bas de page retirées).
-- `src/app/` : application `Adw.Application` en TSX avec gnim (`gnim/gtk4`) : bibliothèque en barre
-  latérale (`LibraryPane.tsx`, une page par catégorie), lecture (`ReaderPage.tsx`).
+- `src/shared/` (GJS) : client libsoup 3 (`client.ts`), état partagé (`store.ts` : bibliothèque,
+  caches des requêtes), état d'un onglet (`reader.ts` : passage, segment sélectionné), réglages
+  (`settings.ts`), HTML de Sefaria → balisage Pango (`markup.ts` : notes de bas de page retirées).
+- `src/app/` : application `Adw.Application` en TSX avec gnim (`gnim/gtk4`) : bibliothèque et tables
+  des matières en barre latérale (`LibraryPane.tsx`), onglets de lecture (`Tabs.ts`), barre d'en-tête
+  de l'onglet courant et vue d'un onglet (`ReaderPage.tsx`), panneau des liens (`LinksPanel.ts`).
 - `data/fonts/` : polices livrées (Taamey Frank CLM pour l'hébreu, GPL + exception de police),
   chargées au démarrage par `src/app/fonts.ts` (Pango) : ni installation ni police système requises.
 - `scripts/` : outillage Node 24 (build esbuild, types gnim, tests, captures, faux serveur, installation).

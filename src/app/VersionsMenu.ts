@@ -4,7 +4,8 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import { languageName, type Passage, type VersionInfo } from '../shared/api.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
-import type { Store } from '../shared/store.ts';
+import type { Accessor } from 'gnim';
+import type { Reader } from '../shared/reader.ts';
 
 const DISPLAYS: readonly (readonly [Display, string])[] = [
   ['both', 'Hébreu et traduction'],
@@ -34,7 +35,7 @@ function choices(items: readonly { readonly key: string; readonly label: string 
 }
 
 /** Contenu du menu pour l'état courant. */
-function build(box: Gtk.Box, store: Store, settings: SettingsStore, passage: Passage | null): void {
+function build(box: Gtk.Box, store: Reader, settings: SettingsStore, passage: Passage | null, reloadBook: (book: string) => void): void {
   for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
   const s = settings.value.peek();
 
@@ -82,7 +83,7 @@ function build(box: Gtk.Box, store: Store, settings: SettingsStore, passage: Pas
       (language) => {
         if (language === settings.value.peek().language) return;
         settings.update({ language });
-        store.reload();
+        reloadBook('');
       },
     ),
   );
@@ -98,7 +99,7 @@ function build(box: Gtk.Box, store: Store, settings: SettingsStore, passage: Pas
           if (title === passage.enVersion) return;
           // langue de repli (préférée absente) : choix limité à ce livre, la langue préférée ne change pas
           settings.updateBook(passage.book, { translation: { language: passage.language, title } });
-          store.reload();
+          reloadBook(passage.book);
         },
       ),
     );
@@ -114,21 +115,21 @@ function build(box: Gtk.Box, store: Store, settings: SettingsStore, passage: Pas
         (title) => {
           if (title === passage.heVersion) return;
           settings.updateBook(passage.book, { hebrew: title });
-          store.reload();
+          reloadBook(passage.book);
         },
       ),
     );
   }
 }
 
-/** Bouton « Versions » et son menu. */
-export function versionsMenu(store: Store, settings: SettingsStore): { button: Gtk.MenuButton; dispose: () => void } {
+/** Bouton « Versions » et son menu, pour l'onglet courant. */
+export function versionsMenu(current: Accessor<Reader>, settings: SettingsStore, reloadBook: (book: string) => void): { button: Gtk.MenuButton; dispose: () => void } {
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, marginTop: 0, marginBottom: 12, marginStart: 12, marginEnd: 12, widthRequest: 340 });
   const scroller = new Gtk.ScrolledWindow({ child: box, hscrollbarPolicy: Gtk.PolicyType.NEVER, propagateNaturalHeight: true, maxContentHeight: 560 });
   const popover = new Gtk.Popover({ child: scroller });
   const button = new Gtk.MenuButton({ label: 'Versions', tooltipText: 'Versions et affichage', popover });
   const ready = (): Passage | null => {
-    const p = store.passage.peek();
+    const p = current.peek().passage.peek();
     return p?.state === 'ready' ? p.value : null;
   };
   // reconstruit hors du signal en cours (le bouton cliqué fait partie du contenu remplacé)
@@ -142,9 +143,9 @@ export function versionsMenu(store: Store, settings: SettingsStore): { button: G
       // passage d'un autre livre pendant que le menu est ouvert : ses versions
       if (p !== null && p.book !== shownBook) {
         shownBook = p.book;
-        store.loadVersions(p.book);
+        current.peek().loadVersions(p.book);
       }
-      build(box, store, settings, p);
+      build(box, current.peek(), settings, p, reloadBook);
       return GLib.SOURCE_REMOVE;
     });
   };
@@ -152,10 +153,20 @@ export function versionsMenu(store: Store, settings: SettingsStore): { button: G
   popover.connect('show', () => {
     const p = ready();
     shownBook = p?.book ?? '';
-    if (p !== null) store.loadVersions(p.book);
-    build(box, store, settings, p);
+    if (p !== null) current.peek().loadVersions(p.book);
+    build(box, current.peek(), settings, p, reloadBook);
   });
-  const subs = [store.versions.subscribe(refresh), store.passage.subscribe(refresh), settings.value.subscribe(refresh)];
+  // onglet courant : abonnements à son passage et à ses versions, renouvelés au changement d'onglet
+  let tabSubs: (() => void)[] = [];
+  const follow = (): void => {
+    tabSubs.forEach((u) => u());
+    const r = current.peek();
+    tabSubs = [r.versions.subscribe(refresh), r.passage.subscribe(refresh)];
+    shownBook = '';
+    refresh();
+  };
+  follow();
+  const subs = [current.subscribe(follow), settings.value.subscribe(refresh), () => tabSubs.forEach((u) => u())];
   return {
     button,
     dispose: () => {

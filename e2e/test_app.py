@@ -152,7 +152,29 @@ def test_commentaires_d_un_verset(run_app):
     assert app.has('label', 'Rashi') and app.has('label', 'Midrach')
     app.point(app.find('label', 'Rashi'))
     assert app.text_visible('Rabbi Isaac said')
-    # ouverture d'une source dans le lecteur : panneau refermé
+    # ouverture d'une source : nouvel onglet ; le premier garde Genesis 1 et son panneau
     app.click('button', 'Ouvrir Rashi on Genesis 1:1:1')
-    assert app.text_visible('Rashi on Genesis 1:1:1')
-    wait_until(lambda: not app.has('button', 'Fermer les liens'), 5, 'panneau refermé')
+    wait_until(lambda: app.has(None, 'Rashi on Genesis 1:1:1') and app.has(None, 'Genesis 1'), 10, 'deux onglets')
+    wait_until(lambda: not app.has('button', 'Fermer les liens'), 5, 'onglet de la source affiché')
+    # Ctrl+W ferme l'onglet de la source : retour à Genesis 1, panneau toujours sur Rashi
+    app.key('ctrl+w')
+    assert app.text_visible('When God began to create heaven and earth')
+    assert app.text_visible('Rabbi Isaac said')
+
+
+def test_onglets(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    # nouvel onglet vide, puis un passage : le premier onglet n'a pas changé
+    app.key('ctrl+t')
+    assert app.text_visible('Choisissez un texte')
+    app.go_to('Berakhot 2a')
+    assert app.text_visible('ברכות')
+    app.key('ctrl+Page_Up')
+    assert app.text_visible('When God began to create heaven and earth')
+    app.key('ctrl+Page_Down')
+    assert app.text_visible('ברכות')
+    # fermer le dernier onglet restant : un onglet vide le remplace
+    app.key('ctrl+w')
+    app.key('ctrl+w')
+    assert app.text_visible('Choisissez un texte')
