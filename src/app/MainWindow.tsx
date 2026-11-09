@@ -14,6 +14,7 @@ function asPage(o: JSX.Element): Adw.NavigationPage {
 
 export function MainWindow({ app, store, settings }: { app: Adw.Application; store: Store; settings: SettingsStore }): JSX.Element {
   let split: Adw.NavigationSplitView | null = null;
+  let links: Adw.OverlaySplitView | null = null;
   return (
     <Adw.ApplicationWindow
       application={app}
@@ -23,9 +24,15 @@ export function MainWindow({ app, store, settings }: { app: Adw.Application; sto
       widthRequest={360}
       heightRequest={400}
       $={(self: Adw.ApplicationWindow) => {
+        // fenêtre moyenne : panneau des liens en superposition (le texte garde sa largeur) ;
+        // ajouté avant le point étroit : libadwaita n'applique que le dernier point satisfait
+        const mid = new Adw.Breakpoint({ condition: Adw.BreakpointCondition.parse('max-width: 1000sp') });
+        if (links !== null) mid.add_setter(links, 'collapsed', true);
+        self.add_breakpoint(mid);
         // fenêtre étroite : une seule colonne, le texte ouvert au premier plan
         const bp = new Adw.Breakpoint({ condition: Adw.BreakpointCondition.parse('max-width: 640sp') });
         if (split !== null) bp.add_setter(split, 'collapsed', true);
+        if (links !== null) bp.add_setter(links, 'collapsed', true);
         self.add_breakpoint(bp);
       }}
     >
@@ -35,7 +42,13 @@ export function MainWindow({ app, store, settings }: { app: Adw.Application; sto
         $={(self: Adw.NavigationSplitView) => {
           split = self;
           self.sidebar = LibraryPane({ store });
-          self.content = asPage(ReaderPage({ store, settings }));
+          self.content = asPage(ReaderPage({
+              store,
+              settings,
+              overlay: (o) => {
+                links = o;
+              },
+            }));
           onCleanup(
             store.passage.subscribe(() => {
               if (store.passage.peek() !== null) self.showContent = true;

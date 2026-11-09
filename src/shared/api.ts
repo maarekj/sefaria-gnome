@@ -104,6 +104,9 @@ export interface Passage {
   readonly segments: readonly Segment[];
   /** le passage couvre plusieurs chapitres d'un texte à deux niveaux (numéros « chapitre:verset ») */
   readonly multiChapter: boolean;
+  /** section du passage (« Genesis 1 », « Berakhot 2a ») et profondeur du texte : références des segments */
+  readonly sectionRef: string;
+  readonly textDepth: number;
 }
 
 /** Livre entier demandé (pas de section) : section à ouvrir à la place, sinon null. */
@@ -204,6 +207,8 @@ export function toPassage(r: TextResponse, wanted: Wanted = ENGLISH): Passage {
     heVersion: he?.versionTitle ?? '',
     enVersion: en?.versionTitle ?? '',
     multiChapter,
+    sectionRef: r.sectionRef ?? r.ref,
+    textDepth: r.textDepth ?? 2,
     segments: labels.map((label) => ({ label, he: heMap.get(label) ?? '', en: enMap.get(label) ?? '' })).filter((s) => s.he !== '' || s.en !== ''),
   };
 }
@@ -366,4 +371,96 @@ export function parseToc(book: string, rawShape: unknown, rawIndex: unknown): To
       sections: typeof l.chapters === 'number' ? null : sectionsOf(l.title, l.chapters, false),
     })),
   };
+}
+
+// ------------------------------------------------------------------ liens (/api/links/{ref})
+
+const RawLink = z.looseObject({
+  category: z.string(),
+  ref: z.string(),
+  sourceHeRef: z.optional(z.string()),
+  commentaryNum: z.optional(z.nullable(z.number())),
+  collectiveTitle: z.optional(z.looseObject({ en: z.optional(z.string()), he: z.optional(z.string()) })),
+  index_title: z.optional(z.string()),
+});
+
+/** Source liée à un segment : un auteur / livre et ses références. */
+export interface LinkBook {
+  readonly title: string;
+  readonly heTitle: string;
+  readonly refs: readonly string[];
+}
+
+/** Liens d'un segment groupés par catégorie (Commentaires, Talmud…). */
+export interface LinkCategory {
+  readonly name: string;
+  readonly label: string;
+  readonly books: readonly LinkBook[];
+  readonly count: number;
+}
+
+/** Catégories : nom français et ordre d'affichage (les autres ensuite, par nom). */
+const CATEGORIES: readonly (readonly [string, string])[] = [
+  ['Commentary', 'Commentaires'],
+  ['Targum', 'Targoum'],
+  ['Tanakh', 'Tanakh'],
+  ['Mishnah', 'Michna'],
+  ['Talmud', 'Talmud'],
+  ['Midrash', 'Midrach'],
+  ['Halakhah', 'Halakha'],
+  ['Kabbalah', 'Kabbale'],
+  ['Chasidut', 'Hassidout'],
+  ['Musar', 'Moussar'],
+  ['Jewish Thought', 'Pensée juive'],
+  ['Liturgy', 'Liturgie'],
+  ['Responsa', 'Responsa'],
+  ['Second Temple', 'Second Temple'],
+  ['Reference', 'Références'],
+  ['Quoting Commentary', 'Commentaires citant ce verset'],
+];
+
+/** Rang d'affichage d'une catégorie (inconnue : avant les commentaires citants). */
+const categoryRank = (name: string): number => {
+  const i = CATEGORIES.findIndex(([n]) => n === name);
+  return i < 0 ? CATEGORIES.length - 1 : i;
+};
+
+/** Liens validés et groupés ; liens invalides et doublons ignorés. */
+export function parseLinks(raw: unknown): LinkCategory[] {
+  const links = z.parse(z.array(z.unknown()), raw).flatMap((l) => {
+    const r = z.safeParse(RawLink, l);
+    return r.success ? [r.data] : [];
+  });
+  const categories = new Map<string, Map<string, { title: string; heTitle: string; refs: Map<string, number> }>>();
+  for (const l of links) {
+    const title = l.collectiveTitle?.en ?? l.index_title ?? l.ref;
+    let books = categories.get(l.category);
+    if (books === undefined) {
+      books = new Map();
+      categories.set(l.category, books);
+    }
+    let book = books.get(title);
+    if (book === undefined) {
+      book = { title, heTitle: l.collectiveTitle?.he ?? '', refs: new Map() };
+      books.set(title, book);
+    }
+    if (!book.refs.has(l.ref)) book.refs.set(l.ref, l.commentaryNum ?? Number.MAX_SAFE_INTEGER);
+  }
+  return [...categories.entries()]
+    .map(([name, books]) => {
+      const list = [...books.values()].map((b) => ({ title: b.title, heTitle: b.heTitle, refs: [...b.refs.entries()].toSorted((a, c) => a[1] - c[1]).map(([ref]) => ref) }));
+      return {
+        name,
+        label: CATEGORIES.find(([n]) => n === name)?.[1] ?? name,
+        books: list.toSorted((a, b) => b.refs.length - a.refs.length || a.title.localeCompare(b.title)),
+        count: list.reduce((n, b) => n + b.refs.length, 0),
+      };
+    })
+    .toSorted((a, b) => categoryRank(a.name) - categoryRank(b.name) || a.name.localeCompare(b.name));
+}
+
+/** Référence d'un segment du passage (« Genesis 1:3 », « Berakhot 2a:5 », « Genesis 7:17 »). */
+export function segmentRef(p: Passage, label: string): string {
+  if (p.multiChapter) return `${p.book} ${label}`;
+  return p.textDepth <= 1 ? `${p.sectionRef} ${label}` : `${p.sectionRef}:${label}`;
 }

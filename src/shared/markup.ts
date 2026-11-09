@@ -65,3 +65,9 @@ export function sefariaMarkup(html: string): string {
   }
   return out.trim();
 }
+
+/**
+ * Marque de direction en tête : Pango déduit la direction d'un paragraphe de sa première lettre
+ * forte, or une traduction commence parfois par un mot hébreu (« בראשית IN THE BEGINNING »).
+ */
+export const withDirection = (markup: string, hebrew: boolean): string => `${hebrew ? '\u200F' : '\u200E'}${markup}`;

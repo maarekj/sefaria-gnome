@@ -139,3 +139,20 @@ def test_paracha_et_montee(run_app):
     assert app.text_visible('Chapitre 7') and app.text_visible('Chapitre 8')
     assert app.has('label', 'פרק ח׳') and app.has('label', '17') and not app.has('label', '7:17')
     assert any('Genesis%207%3A17-8%3A14' in r for r in fake.requests())
+
+
+def test_commentaires_d_un_verset(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    # aucune requête de liens avant la sélection d'un verset
+    assert not any(r.startswith('/api/links/') for r in fake.requests())
+    app.point(app.find('label', contains='When God began to create'))
+    assert app.text_visible('Commentaires')
+    assert any(r.startswith('/api/links/Genesis%201%3A1') for r in fake.requests())
+    assert app.has('label', 'Rashi') and app.has('label', 'Midrach')
+    app.point(app.find('label', 'Rashi'))
+    assert app.text_visible('Rabbi Isaac said')
+    # ouverture d'une source dans le lecteur : panneau refermé
+    app.click('button', 'Ouvrir Rashi on Genesis 1:1:1')
+    assert app.text_visible('Rashi on Genesis 1:1:1')
+    wait_until(lambda: not app.has('button', 'Fermer les liens'), 5, 'panneau refermé')

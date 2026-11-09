@@ -1,5 +1,5 @@
 // HTML de Sefaria → balisage Pango.
-import { decodeEntities, sefariaMarkup } from '../src/shared/markup.ts';
+import { decodeEntities, sefariaMarkup, withDirection } from '../src/shared/markup.ts';
 
 describe('sefariaMarkup', () => {
   it('conserve la mise en forme et échappe le texte', () => {
@@ -18,5 +18,9 @@ describe('sefariaMarkup', () => {
   it('entités', () => {
     expect(decodeEntities('&lt;&#1488;&#x5D1;&nbsp;&inconnu;')).toBe('<אב\u00A0&inconnu;');
     expect(sefariaMarkup('a&nbsp;&lt;b&gt;')).toBe('a\u00A0&lt;b&gt;');
+  });
+  it('marque de direction', () => {
+    expect(withDirection('בראשית IN', false)).toBe('\u200Eבראשית IN');
+    expect(withDirection('א', true)).toBe('\u200Fא');
   });
 });

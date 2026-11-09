@@ -1,0 +1,214 @@
+{
+ "Genesis 1:1": [
+  {
+   "_id": "4f1e0d7a1c81c4cf8a4149e6",
+   "index_title": "Ramban on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Ramban on Genesis 1:1:1",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Ramban on Genesis 1:1:1",
+   "sourceHeRef": "רמב\"ן על בראשית א׳:א׳:א׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0001,
+   "collectiveTitle": {
+    "en": "Ramban",
+    "he": "רמב\"ן"
+   },
+   "heTitle": null
+  },
+  {
+   "_id": "4fc5a128edbab4321000000e",
+   "index_title": "Ramban on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Ramban on Genesis 1:1:2",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Ramban on Genesis 1:1:2",
+   "sourceHeRef": "רמב\"ן על בראשית א׳:א׳:ב׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0002,
+   "collectiveTitle": {
+    "en": "Ramban",
+    "he": "רמב\"ן"
+   },
+   "heTitle": null
+  },
+  {
+   "_id": "4fc5a128edbab43210000010",
+   "index_title": "Ramban on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Ramban on Genesis 1:1:3",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Ramban on Genesis 1:1:3",
+   "sourceHeRef": "רמב\"ן על בראשית א׳:א׳:ג׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0003,
+   "collectiveTitle": {
+    "en": "Ramban",
+    "he": "רמב\"ן"
+   },
+   "heTitle": null
+  },
+  {
+   "_id": "4fc5a128edbab43210000012",
+   "index_title": "Ramban on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Ramban on Genesis 1:1:4",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Ramban on Genesis 1:1:4",
+   "sourceHeRef": "רמב\"ן על בראשית א׳:א׳:ד׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0004,
+   "collectiveTitle": {
+    "en": "Ramban",
+    "he": "רמב\"ן"
+   },
+   "heTitle": null
+  },
+  {
+   "_id": "56a78e94d6e4a955cb526989",
+   "index_title": "Onkelos Genesis",
+   "category": "Targum",
+   "type": "targum",
+   "ref": "Onkelos Genesis 1:1",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Onkelos Genesis 1:1",
+   "sourceHeRef": "תרגום אונקלוס על בראשית א׳:א׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0001,
+   "collectiveTitle": {
+    "en": "Onkelos Genesis",
+    "he": "תרגום אונקלוס על בראשית"
+   },
+   "heTitle": "תרגום אונקלוס על בראשית"
+  },
+  {
+   "_id": "65def9962e1201bebc22ce3e",
+   "index_title": "Rashi on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Rashi on Genesis 1:1:1",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Rashi on Genesis 1:1:1",
+   "sourceHeRef": "רש\"י על בראשית א׳:א׳:א׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0001,
+   "collectiveTitle": {
+    "en": "Rashi",
+    "he": "רש\"י"
+   },
+   "heTitle": "רש\"י על בראשית"
+  },
+  {
+   "_id": "65def9962e1201bebc22ce3f",
+   "index_title": "Rashi on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Rashi on Genesis 1:1:2",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Rashi on Genesis 1:1:2",
+   "sourceHeRef": "רש\"י על בראשית א׳:א׳:ב׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0002,
+   "collectiveTitle": {
+    "en": "Rashi",
+    "he": "רש\"י"
+   },
+   "heTitle": "רש\"י על בראשית"
+  },
+  {
+   "_id": "65def9962e1201bebc22ce40",
+   "index_title": "Rashi on Genesis",
+   "category": "Commentary",
+   "type": "commentary",
+   "ref": "Rashi on Genesis 1:1:3",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Rashi on Genesis 1:1:3",
+   "sourceHeRef": "רש\"י על בראשית א׳:א׳:ג׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0003,
+   "collectiveTitle": {
+    "en": "Rashi",
+    "he": "רש\"י"
+   },
+   "heTitle": "רש\"י על בראשית"
+  },
+  {
+   "_id": "50f19daeedbab47d1cc76455",
+   "index_title": "Bereshit Rabbah",
+   "category": "Midrash",
+   "type": "midrash",
+   "ref": "Bereshit Rabbah 1:2",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Bereshit Rabbah 1:2",
+   "sourceHeRef": "בראשית רבה א׳:ב׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0002,
+   "collectiveTitle": {
+    "en": "Bereshit Rabbah",
+    "he": "בראשית רבה"
+   },
+   "heTitle": "בראשית רבה"
+  },
+  {
+   "_id": "6962c904b222ae1b2bfa407d",
+   "index_title": "Bereshit Rabbah",
+   "category": "Midrash",
+   "type": "",
+   "ref": "Bereshit Rabbah 1:1",
+   "anchorRef": "Genesis 1:1",
+   "anchorRefExpanded": [
+    "Genesis 1:1"
+   ],
+   "sourceRef": "Bereshit Rabbah 1:1",
+   "sourceHeRef": "בראשית רבה א׳:א׳",
+   "anchorVerse": 1,
+   "sourceHasEn": true,
+   "commentaryNum": 1.0001,
+   "collectiveTitle": {
+    "en": "Bereshit Rabbah",
+    "he": "בראשית רבה"
+   },
+   "heTitle": "בראשית רבה"
+  }
+ ]
+}

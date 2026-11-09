@@ -25,5 +25,7 @@ export function scaleCss(scale: number): string {
 .translation { font-size: ${em(1.05)}; }
 .segment.two-columns .translation { font-size: ${em(1)}; }
 .segment-number { font-size: ${em(0.85)}; }
+.link-text.hebrew { font-size: ${em(1.25)}; }
+.link-text.translation { font-size: ${em(0.95)}; }
 `;
 }

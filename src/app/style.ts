@@ -50,7 +50,20 @@ export const STYLESHEET = `
   font-size: 1.35em;
   font-weight: bold;
 }
+.clickable-segment {
+  border-radius: 8px;
+}
+.clickable-segment:hover {
+  background: alpha(currentColor, 0.03);
+}
+.clickable-segment.selected-segment {
+  background: alpha(var(--accent-bg-color), 0.12);
+}
+.link-source {
+  padding-bottom: 12px;
+  border-bottom: 1px solid alpha(currentColor, 0.1);
+}
 .ref-entry {
-  min-width: 160px;
+  min-width: 110px;
 }
 `;

@@ -3,12 +3,13 @@ import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 import Pango from 'gi://Pango';
 import { createComputed, createState, onCleanup } from 'gnim';
-import type { Passage, Segment } from '../shared/api.ts';
+import { type Passage, type Segment, segmentRef } from '../shared/api.ts';
 import { chapterTitle, passageItems } from '../shared/chapters.ts';
-import { sefariaMarkup } from '../shared/markup.ts';
+import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Store } from '../shared/store.ts';
 import { scaleLabel } from './TextScale.ts';
+import { linksPanel } from './LinksPanel.ts';
 import { versionsMenu } from './VersionsMenu.ts';
 
 /** Largeur de texte minimale (px) pour afficher deux colonnes ; en dessous : empilé. */
@@ -21,7 +22,7 @@ export const readerScreen = (p: ReturnType<Store['passage']>): 'empty' | 'loadin
 function textLabel(markup: string, hebrew: boolean): Gtk.Label {
   const label = new Gtk.Label({
     useMarkup: true,
-    label: markup,
+    label: withDirection(markup, hebrew),
     wrap: true,
     wrapMode: Pango.WrapMode.WORD_CHAR,
     selectable: true,
@@ -80,7 +81,23 @@ interface Layout {
   readonly columns: boolean;
 }
 
-function fill(box: Gtk.Box, p: Passage, layout: Layout): void {
+/** Segments affichés, par référence (sélection). */
+type SegmentWidgets = Map<string, Gtk.Widget>;
+
+/** Clic sur un segment : `select` (phase de capture : les libellés sélectionnables gardent leurs clics). */
+function clickable(widget: Gtk.Widget, select: () => void): Gtk.Widget {
+  const click = new Gtk.GestureClick({ propagationPhase: Gtk.PropagationPhase.CAPTURE });
+  // « pressed » : le libellé sélectionnable réclame ensuite la séquence (« released » ne viendrait pas)
+  click.connect('pressed', (_g: Gtk.GestureClick, n: number) => {
+    if (n === 1) select();
+  });
+  widget.add_controller(click);
+  widget.add_css_class('clickable-segment');
+  return widget;
+}
+
+function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) => void): SegmentWidgets {
+  const widgets: SegmentWidgets = new Map();
   for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
   const { display } = layout;
   // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
@@ -92,13 +109,18 @@ function fill(box: Gtk.Box, p: Passage, layout: Layout): void {
       if (heading !== null) box.append(heading);
       continue;
     }
-    box.append(layout.columns && shown === 'both' ? segmentColumns(item.segment, item.number) : segmentRow(item.segment, shown, item.number));
+    const ref = segmentRef(p, item.segment.label);
+    const w = clickable(layout.columns && shown === 'both' ? segmentColumns(item.segment, item.number) : segmentRow(item.segment, shown, item.number), () => select(ref));
+    widgets.set(ref, w);
+    box.append(w);
   }
   const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : p.enVersion].filter((v) => v !== '').join(' · ');
   if (versions !== '') box.append(new Gtk.Label({ label: versions, wrap: true, marginTop: 18, cssClasses: ['caption', 'dim-label'] }));
+  return widgets;
 }
 
-export function ReaderPage({ store, settings }: { store: Store; settings: SettingsStore }): JSX.Element {
+/** `overlay` : panneau des liens créé (la fenêtre le replie en superposition quand elle est étroite). */
+export function ReaderPage({ store, settings, overlay }: { store: Store; settings: SettingsStore; overlay: (o: Adw.OverlaySplitView) => void }): JSX.Element {
   /** largeur disponible pour le texte (repli en mode empilé si trop étroit) */
   const [width, setWidth] = createState(10_000);
   const columns = createComputed(() => settings.value().twoColumns && settings.value().display === 'both' && width() >= TWO_COLUMNS_MIN_WIDTH);
@@ -106,6 +128,22 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
   const layout = (): Layout => ({ display: display.peek(), columns: columns.peek() });
   const versions = versionsMenu(store, settings);
   onCleanup(versions.dispose);
+  const links = linksPanel(store);
+  onCleanup(links.dispose);
+  let segments: SegmentWidgets = new Map();
+  let highlighted: Gtk.Widget | undefined;
+  const highlight = (): void => {
+    highlighted?.remove_css_class('selected-segment');
+    const ref = store.selected.peek();
+    highlighted = ref === null ? undefined : segments.get(ref);
+    highlighted?.add_css_class('selected-segment');
+  };
+  /** sélection (un clic sur le segment déjà sélectionné, ex. pour en sélectionner le texte, ne ferme rien) */
+  const select = (ref: string): void => store.select(ref);
+  const render = (box: Gtk.Box, p: Passage): void => {
+    segments = fill(box, p, layout(), select);
+    highlight();
+  };
   const ready = (): Passage | null => {
     const p = store.passage.peek();
     return p?.state === 'ready' ? p.value : null;
@@ -177,6 +215,23 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
             }}
           />
         </Adw.HeaderBar>
+        <Adw.OverlaySplitView
+          sidebarPosition={Gtk.PackType.END}
+          // seule la sélection ouvre / ferme le panneau (pas le repli ou l'élargissement de la fenêtre)
+          pinSidebar
+          minSidebarWidth={300}
+          maxSidebarWidth={440}
+          sidebarWidthFraction={0.36}
+          showSidebar={store.selected((r) => r !== null)}
+          $={(self: Adw.OverlaySplitView) => {
+            self.sidebar = links.widget;
+            overlay(self);
+            // panneau refermé (glissement, Échap en mode superposé) : plus de sélection
+            self.connect('notify::show-sidebar', () => {
+              if (!self.showSidebar) store.select(null);
+            });
+          }}
+        >
         <Gtk.Stack visibleChildName={store.passage(readerScreen)} transitionType={Gtk.StackTransitionType.CROSSFADE}>
           <Adw.StatusPage $type="named" name="empty" iconName="accessories-dictionary-symbolic" title="Choisissez un texte" description="Parcourez la bibliothèque ou saisissez une référence." />
           <Adw.Spinner $type="named" name="loading" widthRequest={32} heightRequest={32} halign={Gtk.Align.CENTER} valign={Gtk.Align.CENTER} />
@@ -222,22 +277,25 @@ export function ReaderPage({ store, settings }: { store: Store; settings: Settin
                     store.passage.subscribe(() => {
                       const p = ready();
                       if (p === null) return;
-                      fill(self, p, layout());
+                      render(self, p);
                       scroller?.vadjustment.set_value(0);
                     }),
                   );
                   // changement de mode : même passage, même position de défilement
                   const relayout = (): void => {
                     const p = ready();
-                    if (p !== null) fill(self, p, layout());
+                    if (p !== null) render(self, p);
                   };
                   onCleanup(columns.subscribe(relayout));
+                  // segment sélectionné : mis en évidence
+                  onCleanup(store.selected.subscribe(highlight));
                   onCleanup(display.subscribe(relayout));
                 }}
               />
             </Adw.Clamp>
           </Gtk.ScrolledWindow>
         </Gtk.Stack>
+        </Adw.OverlaySplitView>
       </Adw.ToolbarView>
     </Adw.NavigationPage>
   );
