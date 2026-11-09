@@ -66,6 +66,9 @@ export const STYLESHEET = `
 .ref-entry.compact {
   min-width: 70px;
 }
+.ref-suggestions {
+  min-width: 260px;
+}
 .ref-entry {
   min-width: 110px;
 }

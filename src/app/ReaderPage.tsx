@@ -10,6 +10,7 @@ import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
 import { linksPanel } from './LinksPanel.ts';
+import { attachCompletion } from './RefCompletion.ts';
 import type { Tabs } from './Tabs.ts';
 import { versionsMenu } from './VersionsMenu.ts';
 
@@ -301,10 +302,11 @@ export function ReaderPage({ tabs, settings, narrow, reading }: { tabs: Tabs; se
             tooltipText="Aller à une référence"
             cssClasses={narrow((n) => (n ? ['ref-entry', 'compact'] : ['ref-entry']))}
             $={(self: Gtk.SearchEntry) => {
-              self.connect('activate', () => tabs.open(self.text));
+              const completion = attachCompletion(self, tabs.store.client, (ref) => tabs.open(ref));
+              onCleanup(completion.dispose);
               const sync = (): void => {
                 const p = tabs.passage.peek();
-                self.text = p?.state === 'ready' ? p.value.ref : tabs.current.peek().wanted;
+                completion.setText(p?.state === 'ready' ? p.value.ref : tabs.current.peek().wanted);
               };
               onCleanup(tabs.passage.subscribe(sync));
             }}

@@ -464,3 +464,40 @@ export function segmentRef(p: Passage, label: string): string {
   if (p.multiChapter) return `${p.book} ${label}`;
   return p.textDepth <= 1 ? `${p.sectionRef} ${label}` : `${p.sectionRef}:${label}`;
 }
+
+// ------------------------------------------------------------------ complétion (/api/name/{texte})
+
+const NameResponse = z.looseObject({
+  is_ref: z.optional(z.boolean()),
+  ref: z.optional(z.nullable(z.string())),
+  completion_objects: z.optional(z.array(z.unknown())),
+});
+const CompletionObject = z.looseObject({ title: z.string(), key: z.unknown(), type: z.string() });
+
+/** Suggestion de référence : libellé affiché et référence à ouvrir. */
+export interface Suggestion {
+  readonly label: string;
+  readonly ref: string;
+}
+
+/** Résultat de la complétion d'une saisie. */
+export interface Completion {
+  /** référence reconnue (« Gen 3 » → « Genesis 3 »), sinon null */
+  readonly ref: string | null;
+  readonly suggestions: readonly Suggestion[];
+}
+
+/** Suggestions de textes (pas de sujets ni de catégories), dédoublonnées par référence. */
+export function parseCompletion(raw: unknown, limit = 8): Completion {
+  const r = z.parse(NameResponse, raw);
+  const ref = r.is_ref === true && typeof r.ref === 'string' && r.ref !== '' ? r.ref : null;
+  const seen = new Set<string>(ref === null ? [] : [ref]);
+  const suggestions: Suggestion[] = ref === null ? [] : [{ label: ref, ref }];
+  for (const o of r.completion_objects ?? []) {
+    const c = z.safeParse(CompletionObject, o);
+    if (!c.success || c.data.type !== 'ref' || typeof c.data.key !== 'string' || seen.has(c.data.key)) continue;
+    seen.add(c.data.key);
+    suggestions.push({ label: c.data.title === c.data.key ? c.data.title : `${c.data.title} (${c.data.key})`, ref: c.data.key });
+  }
+  return { ref, suggestions: suggestions.slice(0, limit) };
+}

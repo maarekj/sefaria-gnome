@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import * as z from 'zod/mini';
-import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type LinkCategory, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
+import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type LinkCategory, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
 import { HttpError } from './errors.ts';
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
@@ -65,6 +65,11 @@ export class SefariaClient {
   /** Liens (commentaires, sources…) d'un segment, sans texte. */
   async links(ref: string): Promise<LinkCategory[]> {
     return parseLinks(await this.get(`/api/links/${encodeURIComponent(ref)}?with_text=0`));
+  }
+
+  /** Complétion d'une saisie de référence. */
+  async complete(text: string): Promise<Completion> {
+    return parseCompletion(await this.get(`/api/name/${encodeURIComponent(text)}?limit=10`));
   }
 
   /** Versions disponibles d'un livre. */

@@ -207,3 +207,25 @@ def test_reprise_signets_historique(run_app):
         assert app2.has('label', 'Genesis 1')
     finally:
         app2.stop()
+
+
+def test_completion_des_references(run_app):
+    fake, app = run_app()
+    entry = app.ref_entry()
+    app.point(entry)
+    # saisie au clavier : une seule requête après la pause de frappe
+    app.type('Gen 3')
+    assert app.text_visible('Genesis 3')
+    names = [r for r in fake.requests() if r.startswith('/api/name/')]
+    assert names == ['/api/name/Gen%203?limit=10'], names
+    # Entrée : référence reconnue par Sefaria ouverte (« Genesis 3 », pas « Gen 3 »)
+    app.key('Return')
+    wait_until(lambda: any(r.startswith('/api/v3/texts/Genesis%203') for r in fake.requests()), 5, 'Genesis 3 demandé')
+    # suggestion choisie au clavier
+    app.point(app.ref_entry())
+    app.key('ctrl+a')
+    app.type('rashi on gen')
+    assert app.text_visible('Rashi on Genesis')
+    app.key('Down')
+    app.key('Return')
+    wait_until(lambda: any(r.startswith('/api/v3/texts/Rashi%20on%20Genesis') for r in fake.requests()), 5, 'Rashi on Genesis demandé')

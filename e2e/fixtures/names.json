@@ -1,0 +1,449 @@
+{
+  "Gen": {
+    "is_ref": true,
+    "ref": "Genesis",
+    "lang": "en",
+    "completions": [
+      "Genesis",
+      "Gen. R.",
+      "Gender",
+      "Genizah",
+      "Genevieve Greinetz",
+      "Genesis Emmanuel Gonzales",
+      "Gene Goldstein-Plesser",
+      "Generation of the Desert"
+    ],
+    "completion_objects": [
+      {
+        "title": "Genesis",
+        "key": "Genesis",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Gen. R.",
+        "key": "Bereshit Rabbah",
+        "type": "ref",
+        "is_primary": false
+      },
+      {
+        "title": "Gender",
+        "key": "gender",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Genesis",
+        "key": "genesis",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Genizah",
+        "key": "geniza",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Genevieve Greinetz",
+        "key": "genevieve-greinetz",
+        "type": "User",
+        "is_primary": true
+      },
+      {
+        "title": "Genesis Emmanuel Gonzales",
+        "key": "genesis-emmanuel-gonzales",
+        "type": "User",
+        "is_primary": true
+      },
+      {
+        "title": "Gene Goldstein-Plesser",
+        "key": "gene-goldstein-plesser",
+        "type": "User",
+        "is_primary": true
+      },
+      {
+        "title": "Generation of the Desert",
+        "key": "generation-of-the-desert",
+        "type": "Topic",
+        "is_primary": true
+      }
+    ]
+  },
+  "Gen 3": {
+    "is_ref": true,
+    "ref": "Genesis 3",
+    "lang": "en",
+    "completions": [
+      "Genesis",
+      "Gentile",
+      "Genizah",
+      "Gender",
+      "Generations",
+      "Generosity",
+      "Kedushat Levi, Genesis, Genesis",
+      "Sefat Emet, Genesis, Genesis"
+    ],
+    "completion_objects": [
+      {
+        "title": "Genesis",
+        "key": "Genesis",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Genesis",
+        "key": "genesis",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Gentile",
+        "key": "non-jews",
+        "type": "Topic",
+        "is_primary": false
+      },
+      {
+        "title": "Genizah",
+        "key": "geniza",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Gender",
+        "key": "gender",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Generations",
+        "key": "generations",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Generosity",
+        "key": "generosity",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Kedushat Levi, Genesis, Genesis",
+        "key": "Kedushat Levi, Genesis, Bereshit",
+        "type": "ref",
+        "is_primary": false
+      },
+      {
+        "title": "Sefat Emet, Genesis, Genesis",
+        "key": "Sefat Emet, Genesis, Bereshit",
+        "type": "ref",
+        "is_primary": false
+      }
+    ]
+  },
+  "ברכות ה": {
+    "is_ref": true,
+    "ref": "Berakhot 5",
+    "lang": "he",
+    "completions": [
+      "ברכות הנהנין",
+      "ברכות השחר",
+      "הלכה",
+      "הר המוריה",
+      "הלל",
+      "באר הגולה",
+      "ברכות",
+      "הקדמה"
+    ],
+    "completion_objects": [
+      {
+        "title": "ברכות הנהנין",
+        "key": "blessings-over-physical-benefit",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "ברכות השחר",
+        "key": "birkot-hashachar",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "ברכות השחר",
+        "key": "ברכות-השחר",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "הלכה",
+        "key": [
+          "Midrash",
+          "Halakhah"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "הלכה",
+        "key": [
+          "Halakhah"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "הלכה",
+        "key": "halakhah",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "הלכה",
+        "key": "laws",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "הר המוריה",
+        "key": [
+          "Halakhah",
+          "Mishneh Torah",
+          "Commentary",
+          "Har HaMoriyah"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "הר המוריה",
+        "key": "moriah",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "הלל",
+        "key": "Hallel",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "הלל",
+        "key": "hallel",
+        "type": "Topic",
+        "is_primary": false
+      },
+      {
+        "title": "באר הגולה",
+        "key": "Be'er HaGolah",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "באר הגולה",
+        "key": [
+          "Halakhah",
+          "Shulchan Arukh",
+          "Commentary",
+          "Be'er HaGolah"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "באר הגולה",
+        "key": "moses-rivkes",
+        "type": "AuthorTopic",
+        "is_primary": false
+      },
+      {
+        "title": "ברכות",
+        "key": "Berakhot",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "ברכות",
+        "key": "blessings-(halakhah)",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "הקדמה",
+        "key": [
+          "Halakhah",
+          "Mishneh Torah",
+          "Introduction"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      }
+    ]
+  },
+  "rashi on gen": {
+    "is_ref": false,
+    "ref": null,
+    "lang": "en",
+    "completions": [
+      "Rashi on Genesis",
+      "Genesis",
+      "Rashi",
+      "Onkelos",
+      "Onkelos Genesis",
+      "Divrei David on Rashi, Genesis",
+      "Radak on Gen",
+      "Nachmanides on Gen"
+    ],
+    "completion_objects": [
+      {
+        "title": "Rashi on Genesis",
+        "key": "Rashi on Genesis",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Genesis",
+        "key": "Genesis",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Genesis",
+        "key": "genesis",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Rashi",
+        "key": [
+          "Tanakh",
+          "Rishonim on Tanakh",
+          "Rashi"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "Rashi",
+        "key": [
+          "Talmud",
+          "Bavli",
+          "Rishonim on Talmud",
+          "Rashi"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "Rashi",
+        "key": "rashi",
+        "type": "AuthorTopic",
+        "is_primary": true
+      },
+      {
+        "title": "Onkelos",
+        "key": [
+          "Tanakh",
+          "Targum",
+          "Onkelos"
+        ],
+        "type": "TocCategory",
+        "is_primary": true
+      },
+      {
+        "title": "Onkelos",
+        "key": "onkelos",
+        "type": "AuthorTopic",
+        "is_primary": true
+      },
+      {
+        "title": "Onkelos Genesis",
+        "key": "Onkelos Genesis",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Divrei David on Rashi, Genesis",
+        "key": "Divrei David on Rashi, Genesis",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Radak on Gen",
+        "key": "Radak on Genesis",
+        "type": "ref",
+        "is_primary": false
+      },
+      {
+        "title": "Nachmanides on Gen",
+        "key": "Ramban on Genesis",
+        "type": "ref",
+        "is_primary": false
+      }
+    ]
+  },
+  "Ber": {
+    "is_ref": false,
+    "ref": null,
+    "lang": "en",
+    "completions": [
+      "Berakhot",
+      "Bereshit Rabbah",
+      "Bereshit Rabbati",
+      "Beria (Kabbalah)",
+      "Berman Ashkenazi",
+      "Bereshit",
+      "Beruriah",
+      "Bereishit"
+    ],
+    "completion_objects": [
+      {
+        "title": "Berakhot",
+        "key": "Berakhot",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Bereshit Rabbah",
+        "key": "Bereshit Rabbah",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Bereshit Rabbati",
+        "key": "Bereshit Rabbati",
+        "type": "ref",
+        "is_primary": true
+      },
+      {
+        "title": "Beria (Kabbalah)",
+        "key": "beria",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Berman Ashkenazi",
+        "key": "issachar-berman-ben-naphtali-ha-kohen",
+        "type": "AuthorTopic",
+        "is_primary": false
+      },
+      {
+        "title": "Bereshit",
+        "key": "bereshit",
+        "type": "Topic",
+        "is_primary": true
+      },
+      {
+        "title": "Beruriah",
+        "key": "beruriah",
+        "type": "PersonTopic",
+        "is_primary": true
+      },
+      {
+        "title": "Bereishit",
+        "key": "bereishit",
+        "type": "Topic",
+        "is_primary": true
+      }
+    ]
+  }
+}
