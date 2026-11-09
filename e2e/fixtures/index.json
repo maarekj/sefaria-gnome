@@ -8,8 +8,22 @@
         "category": "Torah",
         "heCategory": "תורה",
         "contents": [
-          { "title": "Genesis", "heTitle": "בראשית", "categories": ["Tanakh", "Torah"] },
-          { "title": "Exodus", "heTitle": "שמות", "categories": ["Tanakh", "Torah"] }
+          {
+            "title": "Genesis",
+            "heTitle": "בראשית",
+            "categories": [
+              "Tanakh",
+              "Torah"
+            ]
+          },
+          {
+            "title": "Exodus",
+            "heTitle": "שמות",
+            "categories": [
+              "Tanakh",
+              "Torah"
+            ]
+          }
         ]
       }
     ]
@@ -25,7 +39,37 @@
           {
             "category": "Seder Zeraim",
             "heCategory": "סדר זרעים",
-            "contents": [{ "title": "Berakhot", "heTitle": "ברכות", "categories": ["Talmud", "Bavli", "Seder Zeraim"] }]
+            "contents": [
+              {
+                "title": "Berakhot",
+                "heTitle": "ברכות",
+                "categories": [
+                  "Talmud",
+                  "Bavli",
+                  "Seder Zeraim"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "category": "Liturgy",
+    "heCategory": "סדר התפילה",
+    "contents": [
+      {
+        "category": "Haggadah",
+        "heCategory": "הגדה",
+        "contents": [
+          {
+            "title": "Pesach Haggadah",
+            "heTitle": "הגדה של פסח",
+            "categories": [
+              "Liturgy",
+              "Haggadah"
+            ]
           }
         ]
       }

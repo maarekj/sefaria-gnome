@@ -6,10 +6,13 @@ from conftest import wait_until
 def test_bibliotheque_puis_lecture(run_app):
     fake, app = run_app()
     assert app.text_visible('Choisissez un texte')
-    # Tanakh → Torah → Genesis : la première section s'ouvre
+    # Tanakh → Torah → Genesis → chapitre 1
     app.point(app.find('label', 'Tanakh'))
     app.point(app.find('label', 'Torah'))
     app.point(app.find('label', 'Genesis'))
+    assert app.text_visible('Chapitres')
+    assert app.has('button', '50')
+    app.click('button', '1')
     assert app.text_visible('When God began to create heaven and earth')
     assert app.text_visible('בראשית א׳')
     assert any(r.startswith('/api/v3/texts/Genesis%201') for r in fake.requests())
@@ -96,3 +99,27 @@ def test_versions_et_affichage(run_app):
     app.click('toggle button', 'Hébreu')
     app.text_gone('The beginning of tractate')
     assert app.text_visible('ברכות')
+
+
+def test_table_des_matieres(run_app):
+    fake, app = run_app()
+    # Talmud : dapim à partir de 2a
+    app.point(app.find('label', 'Talmud'))
+    app.point(app.find('label', 'Bavli'))
+    app.point(app.find('label', 'Seder Zeraim'))
+    app.point(app.find('label', 'Berakhot'))
+    assert app.text_visible('Dapim')
+    assert app.has('button', '64a') and not app.has('button', '1a')
+    app.click('button', '2a')
+    assert app.text_visible('ברכות')
+    assert any(r.startswith('/api/shape/Berakhot') for r in fake.requests())
+    # livre complexe : parties, puis ouverture d'une partie sans section
+    app.key('alt+Left')
+    app.key('alt+Left')
+    app.key('alt+Left')
+    app.key('alt+Left')
+    app.point(app.find('label', 'Liturgy'))
+    app.point(app.find('label', 'Haggadah'))
+    app.point(app.find('label', 'Pesach Haggadah'))
+    app.point(app.find('label', 'Magid, Ha Lachma Anya'))
+    wait_until(lambda: any('Pesach%20Haggadah%2C%20Magid%2C%20Ha%20Lachma%20Anya' in r for r in fake.requests()), 5, 'partie ouverte')

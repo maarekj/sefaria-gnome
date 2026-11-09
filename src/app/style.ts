@@ -28,6 +28,15 @@ export const STYLESHEET = `
   font-size: 1.25em;
   font-weight: bold;
 }
+.section-button {
+  min-width: 0;
+  padding: 4px 2px;
+  font-feature-settings: "tnum";
+}
+.section-button.current-section {
+  background: var(--accent-bg-color);
+  color: var(--accent-fg-color);
+}
 .ref-entry {
   min-width: 160px;
 }

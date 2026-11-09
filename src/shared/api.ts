@@ -244,3 +244,72 @@ export function bookOf(ref: string, books: Readonly<Record<string, unknown>>): s
     .filter((b) => ref === b || ref.startsWith(`${b} `))
     .toSorted((a, b) => b.length - a.length)[0];
 }
+
+// ------------------------------------------------------------------ table des matières (/api/shape, /api/v2/raw/index)
+
+/** Section d'un livre : libellé affiché (« 3 », « 5b ») et référence à ouvrir. */
+export interface TocSection {
+  readonly label: string;
+  readonly ref: string;
+}
+
+/** Partie d'un livre complexe : ouverte directement (`sections` null) ou découpée en sections. */
+export interface TocNode {
+  readonly title: string;
+  readonly heTitle: string;
+  readonly ref: string;
+  readonly sections: readonly TocSection[] | null;
+}
+
+export type Toc = { readonly kind: 'sections'; readonly sectionName: string; readonly sections: readonly TocSection[] } | { readonly kind: 'nodes'; readonly nodes: readonly TocNode[] };
+
+/** Nombres de segments par section (0 : section vide) ou nombre de segments d'un nœud sans section. */
+const ShapeChapters = z.union([z.number(), z.array(z.union([z.number(), z.null()]))]);
+const ShapeLeaf = z.looseObject({ title: z.string(), heTitle: z.optional(z.nullable(z.string())), heBook: z.optional(z.nullable(z.string())), chapters: ShapeChapters });
+const Shape = z.array(z.looseObject({ title: z.optional(z.nullable(z.string())), isComplex: z.optional(z.nullable(z.boolean())), chapters: z.union([ShapeChapters, z.array(z.unknown())]) }));
+const RawIndex = z.looseObject({
+  schema: z.looseObject({ addressTypes: z.optional(z.nullable(z.array(z.string()))), sectionNames: z.optional(z.nullable(z.array(z.string()))) }),
+});
+
+/** Libellé de la section d'index `i` : daf du Talmud (0 → 1a, 3 → 2b) ou numéro. */
+export const sectionLabel = (i: number, talmud: boolean): string => (talmud ? `${Math.floor(i / 2) + 1}${i % 2 === 0 ? 'a' : 'b'}` : String(i + 1));
+
+/** Sections non vides d'un nœud de `ref`. */
+function sectionsOf(ref: string, chapters: readonly (number | null)[], talmud: boolean): TocSection[] {
+  return chapters.flatMap((n, i) => {
+    if (n === null || n === 0) return [];
+    const label = sectionLabel(i, talmud);
+    return [{ label, ref: `${ref} ${label}` }];
+  });
+}
+
+/** Retire le titre du livre en tête (« Pesach Haggadah, Magid » → « Magid »). */
+const shortTitle = (book: string, title: string, sep = ', '): string => (title.startsWith(`${book}${sep}`) ? title.slice(book.length + sep.length) : title);
+
+/** Table des matières à partir de la forme (`/api/shape/{titre}`) et du schéma (`/api/v2/raw/index/{titre}`). */
+export function parseToc(book: string, rawShape: unknown, rawIndex: unknown): Toc {
+  const shape = z.parse(Shape, rawShape)[0];
+  if (shape === undefined) return { kind: 'sections', sectionName: '', sections: [] };
+  const schema = z.safeParse(RawIndex, rawIndex);
+  const addressTypes = schema.success ? (schema.data.schema.addressTypes ?? []) : [];
+  const talmud = addressTypes[0] === 'Talmud';
+  const sectionName = schema.success ? (schema.data.schema.sectionNames?.[0] ?? '') : '';
+  const { chapters } = shape;
+  if (shape.isComplex !== true) {
+    const counts = z.safeParse(z.array(z.union([z.number(), z.null()])), chapters);
+    return { kind: 'sections', sectionName, sections: counts.success ? sectionsOf(book, counts.data, talmud) : [] };
+  }
+  const leaves = z.parse(z.array(z.unknown()), chapters).flatMap((c) => {
+    const r = z.safeParse(ShapeLeaf, c);
+    return r.success ? [r.data] : [];
+  });
+  return {
+    kind: 'nodes',
+    nodes: leaves.map((l) => ({
+      title: shortTitle(book, l.title),
+      heTitle: shortTitle(l.heBook ?? '', l.heTitle ?? ''),
+      ref: l.title,
+      sections: typeof l.chapters === 'number' ? null : sectionsOf(l.title, l.chapters, false),
+    })),
+  };
+}

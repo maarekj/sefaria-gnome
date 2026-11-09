@@ -1,6 +1,6 @@
 // État réactif de l'application : bibliothèque et passage ouvert.
 import { type Accessor, createState, type Setter } from 'gnim';
-import type { LibraryNode, Passage, VersionInfo, Wanted } from './api.ts';
+import type { LibraryNode, Passage, Toc, VersionInfo, Wanted } from './api.ts';
 import type { SefariaClient } from './client.ts';
 import { errorMessage } from './errors.ts';
 
@@ -23,6 +23,7 @@ export class Store {
   readonly #versionsCache = new Map<string, readonly VersionInfo[]>();
   #versionsBook = '';
   readonly #versionsFor: VersionsFor;
+  readonly #tocs = new Map<string, Promise<Toc>>();
   /** dernière référence demandée (les réponses plus anciennes sont ignorées) */
   #wanted = '';
 
@@ -88,5 +89,16 @@ export class Store {
       }
       if (this.#versionsBook === book) this.#setVersions(next);
     })();
+  }
+
+  /** Table des matières d'un livre (une requête par livre, échec non mis en cache). */
+  toc(book: string): Promise<Toc> {
+    let p = this.#tocs.get(book);
+    if (p === undefined) {
+      p = this.client.toc(book);
+      this.#tocs.set(book, p);
+      p.catch(() => this.#tocs.delete(book));
+    }
+    return p;
   }
 }

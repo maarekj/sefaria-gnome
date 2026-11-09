@@ -3,6 +3,7 @@
 // Usage : node scripts/fake-sefaria.ts [--port 4890] [--delay ms]
 //   GET /api/index, GET /api/v3/texts/{ref} : comme l'API réelle (un titre de livre renvoie sa
 //   première section via `firstAvailableSectionRef`, une référence inconnue { error }) ;
+//   GET /api/shape/{titre}, /api/v2/raw/index/{titre} : table des matières (e2e/fixtures/books.json) ;
 //   GET /api/texts/versions/{titre} : versions des passages de ce livre ;
 //   GET /__test/requests : requêtes reçues (chemins), pour les vérifications des tests.
 import fs from 'node:fs';
@@ -40,6 +41,7 @@ function bookVersions(title: string): unknown[] {
   }
   return [...seen.values()];
 }
+const books = z.parse(z.record(z.string(), z.object({ shape: z.unknown(), index: z.unknown() })), JSON.parse(fs.readFileSync(path.join(fixtures, 'books.json'), 'utf8')));
 const requests: string[] = [];
 
 /** Réponse pour un livre entier : sans section, avec sa première section disponible. */
@@ -72,6 +74,12 @@ const server = http.createServer((req, res) => {
       const found = text === undefined ? book(ref) : withVersions(text, url.searchParams.getAll('version'));
       // comme l'API réelle : 200 avec { error } pour une référence inconnue
       respond(res, 200, found ?? { error: `Impossible de trouver la référence « ${ref} ».` });
+      return;
+    }
+    for (const [prefix, part] of [['/api/shape/', 'shape'], ['/api/v2/raw/index/', 'index']] as const) {
+      if (!url.pathname.startsWith(prefix)) continue;
+      const found = books[decodeURIComponent(url.pathname.slice(prefix.length))];
+      respond(res, found === undefined ? 404 : 200, found === undefined ? { error: 'livre inconnu' } : found[part]);
       return;
     }
     if (url.pathname.startsWith('/api/texts/versions/')) {
