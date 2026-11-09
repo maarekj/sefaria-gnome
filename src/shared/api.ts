@@ -501,3 +501,52 @@ export function parseCompletion(raw: unknown, limit = 8): Completion {
   }
   return { ref, suggestions: suggestions.slice(0, limit) };
 }
+
+// ------------------------------------------------------------------ calendriers (/api/calendars)
+
+const Bilingual = z.looseObject({ en: z.optional(z.string()), he: z.optional(z.string()) });
+const CalendarItem = z.looseObject({
+  title: Bilingual,
+  displayValue: Bilingual,
+  ref: z.optional(z.nullable(z.string())),
+  extraDetails: z.optional(z.nullable(z.looseObject({ aliyot: z.optional(z.array(z.string())) }))),
+});
+
+/** Lecture du jour : nom (français si connu), passage affiché, référence et montées éventuelles. */
+export interface DailyReading {
+  readonly name: string;
+  readonly heName: string;
+  readonly value: string;
+  readonly heValue: string;
+  readonly ref: string;
+  readonly aliyot: readonly string[];
+}
+
+/** Noms français des lectures du calendrier de Sefaria. */
+const DAILY_NAMES: Readonly<Record<string, string>> = {
+  'Parashat Hashavua': 'Paracha de la semaine',
+  Haftarah: 'Haftara',
+  'Daf Yomi': 'Daf yomi',
+  'Daily Mishnah': 'Michna du jour',
+  'Daily Rambam': 'Rambam du jour',
+  'Daily Rambam (3 Chapters)': 'Rambam du jour (3 chapitres)',
+  'Daf a Week': 'Daf de la semaine',
+  'Halakhah Yomit': 'Halakha du jour',
+  'Arukh HaShulchan Yomi': 'Aroukh haChoulhan du jour',
+  'Tanakh Yomi': 'Tanakh du jour',
+  'Tanya Yomi': 'Tanya du jour',
+  'Yerushalmi Yomi': 'Yerouchalmi du jour',
+};
+
+/** Lectures du jour ; celles sans référence (ex. Chok LeYisrael) sont ignorées. */
+export function parseCalendar(raw: unknown): DailyReading[] {
+  const items = z.parse(z.looseObject({ calendar_items: z.array(z.unknown()) }), raw).calendar_items;
+  return items.flatMap((i) => {
+    const r = z.safeParse(CalendarItem, i);
+    const ref = r.success ? r.data.ref : null;
+    if (!r.success || typeof ref !== 'string' || ref === '') return [];
+    const d = r.data;
+    const en = d.title.en ?? '';
+    return [{ name: DAILY_NAMES[en] ?? en, heName: d.title.he ?? '', value: d.displayValue.en ?? ref, heValue: d.displayValue.he ?? '', ref, aliyot: d.extraDetails?.aliyot ?? [] }];
+  });
+}

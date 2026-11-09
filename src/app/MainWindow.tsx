@@ -82,7 +82,7 @@ export function MainWindow({ app, store, settings, reading, ready }: { app: Adw.
         maxSidebarWidth={360}
         $={(self: Adw.NavigationSplitView) => {
           split = self;
-          self.sidebar = LibraryPane({ tabs, reading });
+          self.sidebar = LibraryPane({ tabs, reading, settings });
           self.content = asPage(ReaderPage({ tabs, settings, narrow, reading }));
           onCleanup(
             tabs.passage.subscribe(() => {

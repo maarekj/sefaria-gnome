@@ -1,0 +1,226 @@
+{
+  "date": "2026-11-09",
+  "calendar_items": [
+    {
+      "title": {
+        "en": "Parashat Hashavua",
+        "he": "פרשת השבוע"
+      },
+      "displayValue": {
+        "en": "Toldot",
+        "he": "תולדות"
+      },
+      "ref": "Genesis 25:19-28:9",
+      "heRef": "בראשית כ״ה:י״ט-כ״ח:ט׳",
+      "order": 1,
+      "category": "Tanakh",
+      "extraDetails": {
+        "aliyot": [
+          "Genesis 25:19-26:5",
+          "Genesis 26:6-26:12",
+          "Genesis 26:13-26:22",
+          "Genesis 26:23-26:29",
+          "Genesis 26:30-27:27",
+          "Genesis 27:28-28:4",
+          "Genesis 28:5-28:9",
+          "Genesis 28:7-28:9"
+        ]
+      }
+    },
+    {
+      "title": {
+        "en": "Haftarah",
+        "he": "הפטרה"
+      },
+      "displayValue": {
+        "en": "Malachi 1:1-2:7",
+        "he": "מלאכי א׳:א׳-ב׳:ז׳"
+      },
+      "ref": "Malachi 1:1-2:7",
+      "heRef": null,
+      "order": 2,
+      "category": "Tanakh",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Daf Yomi",
+        "he": "דף יומי"
+      },
+      "displayValue": {
+        "en": "Bekhorot 52",
+        "he": "בכורות נ״ב"
+      },
+      "ref": "Bekhorot 52",
+      "heRef": null,
+      "order": 3,
+      "category": "Talmud",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "929",
+        "he": "929"
+      },
+      "displayValue": {
+        "en": "II Kings 3 (312)",
+        "he": "מלכים ב ג׳ (312)"
+      },
+      "ref": "II Kings 3",
+      "heRef": null,
+      "order": 4,
+      "category": "Tanakh",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Daily Mishnah",
+        "he": "משנה יומית"
+      },
+      "displayValue": {
+        "en": "Mishnah Oholot 16:4-5",
+        "he": "משנה אהלות ט״ז:ד׳-ה׳"
+      },
+      "ref": "Mishnah Oholot 16:4-5",
+      "heRef": null,
+      "order": 5,
+      "category": "Mishnah",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Daily Rambam",
+        "he": "הרמב\"ם היומי"
+      },
+      "displayValue": {
+        "en": "Forbidden Intercourse 21",
+        "he": "הלכות איסורי ביאה כ״א"
+      },
+      "ref": "Mishneh Torah, Forbidden Intercourse 21",
+      "heRef": null,
+      "order": 6,
+      "category": "Halakhah",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Daily Rambam (3 Chapters)",
+        "he": "הרמב\"ם היומי (3 פרקים)"
+      },
+      "displayValue": {
+        "en": "Neighbors 10-12",
+        "he": "הלכות שכנים י׳-י״ב"
+      },
+      "ref": "Mishneh Torah, Neighbors 10-12",
+      "heRef": null,
+      "order": 7,
+      "category": "Halakhah",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Daf a Week",
+        "he": "דף השבוע"
+      },
+      "displayValue": {
+        "en": "Nazir 17",
+        "he": "נזיר י״ז"
+      },
+      "ref": "Nazir 17",
+      "heRef": null,
+      "order": 8,
+      "category": "Talmud",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Halakhah Yomit",
+        "he": "הלכה יומית"
+      },
+      "displayValue": {
+        "en": "Shulchan Arukh, Orach Chayim 294:1-3",
+        "he": "שולחן ערוך, אורח חיים רצ״ד:א׳-ג׳"
+      },
+      "ref": "Shulchan Arukh, Orach Chayim 294:1-3",
+      "heRef": null,
+      "order": 9,
+      "category": "Halakhah",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Arukh HaShulchan Yomi",
+        "he": "ערוך השולחן היומי"
+      },
+      "displayValue": {
+        "en": "Orach Chaim 371:5-372:4",
+        "he": "אורח חיים שע״א:ה׳-שע״ב:ד׳"
+      },
+      "ref": "Arukh HaShulchan, Orach Chaim 371:5-372:4",
+      "heRef": null,
+      "order": 10,
+      "category": "Halakhah",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Tanakh Yomi",
+        "he": "תנ\"ך יומי"
+      },
+      "displayValue": {
+        "en": "Samuel Seder 3",
+        "he": "שמואל סדר ג"
+      },
+      "ref": "I Samuel 3:20-6:13",
+      "heRef": null,
+      "order": 11,
+      "category": "Tanakh",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Chok LeYisrael",
+        "he": "חק לישראל"
+      },
+      "displayValue": {
+        "en": "Toldot",
+        "he": "תולדות"
+      },
+      "ref": null,
+      "heRef": null,
+      "order": 12,
+      "category": "Tanakh",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Tanya Yomi",
+        "he": "תניא יומי"
+      },
+      "displayValue": {
+        "en": "29 Cheshvan",
+        "he": "כט חשון"
+      },
+      "ref": "Tanya, Part V; Kuntres Acharon 3:1",
+      "heRef": null,
+      "order": 15,
+      "category": "Chasidut",
+      "extraDetails": null
+    },
+    {
+      "title": {
+        "en": "Yerushalmi Yomi",
+        "he": "ירושלמי יומי"
+      },
+      "displayValue": {
+        "en": "Jerusalem Talmud Sanhedrin 21",
+        "he": "תלמוד ירושלמי סנהדרין כא"
+      },
+      "ref": "Jerusalem Talmud Sanhedrin 4:1:2-5:2",
+      "heRef": null,
+      "order": 16,
+      "category": "Talmud",
+      "extraDetails": null
+    }
+  ]
+}

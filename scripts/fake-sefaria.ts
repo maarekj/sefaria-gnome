@@ -4,6 +4,7 @@
 //   GET /api/index, GET /api/v3/texts/{ref} : comme l'API réelle (un titre de livre renvoie sa
 //   première section via `firstAvailableSectionRef`, une référence inconnue { error }) ;
 //   GET /api/shape/{titre}, /api/v2/raw/index/{titre} : table des matières (e2e/fixtures/books.json) ;
+//   GET /api/calendars : lectures du jour (e2e/fixtures/calendars.json) ;
 //   GET /api/name/{texte} : complétion (e2e/fixtures/names.json, sinon aucune) ;
 //   GET /api/links/{ref} : liens d'un segment (e2e/fixtures/links.json, sinon aucun) ;
 //   GET /api/texts/versions/{titre} : versions des passages de ce livre ;
@@ -46,6 +47,7 @@ function bookVersions(title: string): unknown[] {
 const books = z.parse(z.record(z.string(), z.object({ shape: z.unknown(), index: z.unknown() })), JSON.parse(fs.readFileSync(path.join(fixtures, 'books.json'), 'utf8')));
 const links = z.parse(z.record(z.string(), z.array(z.unknown())), JSON.parse(fs.readFileSync(path.join(fixtures, 'links.json'), 'utf8')));
 const names = z.parse(z.record(z.string(), z.unknown()), JSON.parse(fs.readFileSync(path.join(fixtures, 'names.json'), 'utf8')));
+const calendars: unknown = JSON.parse(fs.readFileSync(path.join(fixtures, 'calendars.json'), 'utf8'));
 const requests: string[] = [];
 
 /** Réponse pour un livre entier : sans section, avec sa première section disponible. */
@@ -84,6 +86,10 @@ const server = http.createServer((req, res) => {
       if (!url.pathname.startsWith(prefix)) continue;
       const found = books[decodeURIComponent(url.pathname.slice(prefix.length))];
       respond(res, found === undefined ? 404 : 200, found === undefined ? { error: 'livre inconnu' } : found[part]);
+      return;
+    }
+    if (url.pathname === '/api/calendars') {
+      respond(res, 200, calendars);
       return;
     }
     if (url.pathname.startsWith('/api/name/')) {

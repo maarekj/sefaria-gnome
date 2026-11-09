@@ -21,6 +21,8 @@ const RawSettings = z.looseObject({
   display: z.optional(z.enum(['both', 'hebrew', 'translation'])),
   /** famille de langue de la traduction (« english », « french »…) */
   language: z.optional(z.string()),
+  /** calendrier de diaspora (sinon d'Israël) pour les lectures du jour */
+  diaspora: z.optional(z.boolean()),
   books: z.optional(z.record(z.string(), z.object({ hebrew: z.optional(z.string()), translation: z.optional(z.object({ language: z.string(), title: z.string() })) }))),
 });
 
@@ -29,10 +31,11 @@ export interface Settings {
   readonly textScale: number;
   readonly display: Display;
   readonly language: string;
+  readonly diaspora: boolean;
   readonly books: Readonly<Record<string, BookVersions>>;
 }
 
-const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', books: {} };
+const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', diaspora: true, books: {} };
 
 const decoder = new TextDecoder();
 
@@ -52,6 +55,7 @@ export function readSettings(file = settingsFile()): Settings {
         textScale: d.textScale ?? DEFAULTS.textScale,
         display: d.display ?? DEFAULTS.display,
         language: d.language ?? DEFAULTS.language,
+        diaspora: d.diaspora ?? DEFAULTS.diaspora,
         books,
       };
     }

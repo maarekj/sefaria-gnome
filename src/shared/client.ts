@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import * as z from 'zod/mini';
-import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type LinkCategory, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
+import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type DailyReading, type LinkCategory, parseCalendar, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
 import { HttpError } from './errors.ts';
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
@@ -65,6 +65,11 @@ export class SefariaClient {
   /** Liens (commentaires, sources…) d'un segment, sans texte. */
   async links(ref: string): Promise<LinkCategory[]> {
     return parseLinks(await this.get(`/api/links/${encodeURIComponent(ref)}?with_text=0`));
+  }
+
+  /** Lectures du jour (calendrier de diaspora ou d'Israël). */
+  async calendar(diaspora: boolean): Promise<DailyReading[]> {
+    return parseCalendar(await this.get(`/api/calendars?diaspora=${diaspora ? 1 : 0}`));
   }
 
   /** Complétion d'une saisie de référence. */

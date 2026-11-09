@@ -229,3 +229,19 @@ def test_completion_des_references(run_app):
     app.key('Down')
     app.key('Return')
     wait_until(lambda: any(r.startswith('/api/v3/texts/Rashi%20on%20Genesis') for r in fake.requests()), 5, 'Rashi on Genesis demandé')
+
+
+def test_lectures_du_jour(run_app):
+    fake, app = run_app()
+    # aucune requête de calendrier avant l'ouverture de la page
+    assert not any(r.startswith('/api/calendars') for r in fake.requests())
+    app.point(app.find('label', 'Aujourd’hui'))
+    assert app.text_visible('Daf yomi · Bekhorot 52')
+    assert any(r == '/api/calendars?diaspora=1' for r in fake.requests())
+    app.point(app.find('label', 'Daf yomi · Bekhorot 52'))
+    wait_until(lambda: any(r.startswith('/api/v3/texts/Bekhorot%2052') for r in fake.requests()), 5, 'daf du jour demandé')
+    # paracha : page des montées
+    app.point(app.find('label', 'Paracha de la semaine · Toldot'))
+    assert app.text_visible('3e montée')
+    app.point(app.find('label', '3e montée'))
+    wait_until(lambda: any('Genesis%2026%3A13-26%3A22' in r for r in fake.requests()), 5, 'montée demandée')

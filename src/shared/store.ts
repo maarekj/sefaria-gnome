@@ -1,6 +1,7 @@
 // État partagé de l'application : bibliothèque et caches des requêtes (onglets : reader.ts).
 import { type Accessor, createState, type Setter } from 'gnim';
-import type { LibraryNode, LinkCategory, Passage, Toc, VersionInfo, Wanted } from './api.ts';
+import GLib from 'gi://GLib';
+import type { DailyReading, LibraryNode, LinkCategory, Passage, Toc, VersionInfo, Wanted } from './api.ts';
 import type { SefariaClient } from './client.ts';
 import { errorMessage } from './errors.ts';
 
@@ -31,6 +32,7 @@ export class Store {
   readonly #links = new Map<string, Promise<LinkCategory[]>>();
   readonly #texts = new Map<string, Promise<Passage>>();
   readonly #versions = new Map<string, Promise<VersionInfo[]>>();
+  readonly #calendars = new Map<string, Promise<DailyReading[]>>();
 
   constructor(client: SefariaClient, versionsFor: VersionsFor = () => ({ translation: { language: 'english' } })) {
     this.client = client;
@@ -52,6 +54,12 @@ export class Store {
   /** Table des matières d'un livre (une requête par livre). */
   toc(book: string): Promise<Toc> {
     return cached(this.#tocs, book, () => this.client.toc(book));
+  }
+
+  /** Lectures du jour (une requête par jour et par calendrier). */
+  calendar(diaspora: boolean): Promise<DailyReading[]> {
+    const day = GLib.DateTime.new_now_local().format('%F') ?? '';
+    return cached(this.#calendars, `${day}:${diaspora ? 'diaspora' : 'israel'}`, () => this.client.calendar(diaspora));
   }
 
   /** Versions disponibles d'un livre (une requête par livre). */

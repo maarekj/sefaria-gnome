@@ -3,8 +3,9 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 import { onCleanup } from 'gnim';
-import type { Book, Category, LibraryNode, Parasha, Toc, TocNode, TocSection } from '../shared/api.ts';
+import type { Book, Category, DailyReading, LibraryNode, Parasha, Toc, TocNode, TocSection } from '../shared/api.ts';
 import { errorMessage } from '../shared/errors.ts';
+import type { SettingsStore } from '../shared/settings.ts';
 import type { Place, ReadingStore } from '../shared/userdata.ts';
 import type { Tabs } from './Tabs.ts';
 
@@ -163,7 +164,55 @@ function placesPage(title: string, empty: string, places: () => readonly Place[]
   return pg;
 }
 
-export function LibraryPane({ tabs, reading }: { tabs: Tabs; reading: ReadingStore }): Adw.NavigationPage {
+/** Page « Aujourd'hui » : lectures du jour (paracha avec ses montées), calendrier diaspora / Israël. */
+function todayPage(tabs: Tabs, settings: SettingsStore, push: (p: Adw.NavigationPage) => void): Adw.NavigationPage {
+  const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
+  const diaspora = new Adw.SwitchRow({ title: 'Calendrier de diaspora', subtitle: 'Sinon celui d’Israël', active: settings.value.peek().diaspora });
+  const options = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['boxed-list'], marginTop: 8, marginStart: 8, marginEnd: 8, marginBottom: 4 });
+  options.append(diaspora);
+  box.append(options);
+  const stack = new Gtk.Stack({ vexpand: true });
+  box.append(stack);
+  const show = (readings: readonly DailyReading[]): void => {
+    const list = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['navigation-sidebar'] });
+    for (const r of readings) {
+      const more = r.aliyot.length > 0;
+      list.append(
+        row(`${r.name} · ${r.value}`, r.heValue === '' ? r.heName : `${r.heName} · ${r.heValue}`, more, () => {
+          if (more) push(parashaPage({ name: r.value, heName: r.heValue, ref: r.ref, aliyot: r.aliyot.slice(0, 7) }, tabs));
+          else tabs.open(r.ref);
+        }),
+      );
+    }
+    const old = stack.get_child_by_name('list');
+    if (old !== null) stack.remove(old);
+    stack.add_named(scrolled(list), 'list');
+    stack.visibleChildName = 'list';
+  };
+  const load = (): void => {
+    for (let c = stack.get_first_child(); c !== null; c = stack.get_first_child()) stack.remove(c);
+    stack.add_named(new Adw.Spinner({ widthRequest: 32, heightRequest: 32, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER }), 'loading');
+    stack.visibleChildName = 'loading';
+    void (async () => {
+      try {
+        show(await tabs.store.calendar(settings.value.peek().diaspora));
+      } catch (error) {
+        const status = new Adw.StatusPage({ iconName: 'network-offline-symbolic', title: 'Calendrier indisponible', description: errorMessage(error) });
+        stack.add_named(status, 'error');
+        stack.visibleChildName = 'error';
+      }
+    })();
+  };
+  diaspora.connect('notify::active', () => {
+    if (diaspora.active === settings.value.peek().diaspora) return;
+    settings.update({ diaspora: diaspora.active });
+    load();
+  });
+  load();
+  return page('Aujourd’hui', box);
+}
+
+export function LibraryPane({ tabs, reading, settings }: { tabs: Tabs; reading: ReadingStore; settings: SettingsStore }): Adw.NavigationPage {
   const nav = new Adw.NavigationView();
   const push = (p: Adw.NavigationPage): void => nav.push(p);
   const activate = (n: LibraryNode): void => {
@@ -183,6 +232,7 @@ export function LibraryPane({ tabs, reading }: { tabs: Tabs; reading: ReadingSto
             if (old !== null) self.remove(old);
             self.add_named(
               nodeList(l.value, activate, [
+                row('Aujourd’hui', 'Paracha, daf yomi, lectures du jour', true, () => nav.push(todayPage(tabs, settings, push))),
                 row('Signets', '', true, () => nav.push(placesPage('Signets', 'Aucun signet', () => reading.value.peek().bookmarks, reading, tabs))),
                 row('Historique', '', true, () => nav.push(placesPage('Historique', 'Historique vide', () => reading.value.peek().history, reading, tabs, () => reading.clearHistory()))),
               ]),
