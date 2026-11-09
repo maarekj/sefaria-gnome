@@ -1,6 +1,6 @@
 // Traduction par IA : invite et lecture de la réponse.
 import * as z from 'zod/mini';
-import { buildPrompt, parseAiResponse } from '../src/shared/aiprompt.ts';
+import { buildCommentaryPrompt, buildPrompt, commentaryKey, parseAiResponse } from '../src/shared/aiprompt.ts';
 import { TextResponse, toPassage } from '../src/shared/api.ts';
 
 const passage = toPassage(
@@ -36,5 +36,14 @@ describe('traduction par IA', () => {
     const p = buildPrompt(passage, 'french', undefined, { ref: 'Genesis 1:1', he: '<b>בְּרֵאשִׁית</b>', en: 'In the beginning<i class="footnote">n</i>' });
     expect(p).toContain('Ce texte commente Genesis 1:1');
     expect(p).toContain('    בְּרֵאשִׁית\n    (traduction existante : In the beginning)');
+  });
+  it('commentaires groupés : section, verset signalé, identifiants', () => {
+    const c1 = { id: 'c1', passage };
+    const p = buildCommentaryPrompt([c1], passage, 'Genesis 1:2', (label) => `Genesis 1:${label}`, 'french', 'Rashi');
+    expect(p).toContain('commentaires de Rashi sur Genesis 1:2');
+    expect(p).toContain('(2) וְהָאָרֶץ  ← VERSET COMMENTÉ');
+    expect(p).not.toContain('(1) בְּרֵאשִׁית  ←');
+    expect(p).toContain('[c1.1] בְּרֵאשִׁית');
+    expect(commentaryKey(c1, '2')).toBe('c1.2');
   });
 });

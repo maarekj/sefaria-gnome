@@ -3,7 +3,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as z from 'zod/mini';
-import { buildPrompt, type Commented, parseAiResponse } from './aiprompt.ts';
+import { buildCommentaryPrompt, buildPrompt, type Commentary, type Commented, commentaryKey, parseAiResponse } from './aiprompt.ts';
 import type { Passage } from './api.ts';
 import type { AiTool } from './settings.ts';
 
@@ -66,10 +66,7 @@ const decoder = new TextDecoder();
 const CacheEntry = z.record(z.string(), z.string());
 
 function cacheFile(p: Passage, o: AiOptions, only: string | undefined, commented?: string): string {
-  // pas de NUL comme séparateur : compute_checksum_for_string s'arrêterait au premier
-  const key = JSON.stringify([p.ref, only ?? '', p.heVersion, p.enVersion, o.language, o.tool, o.model.trim(), ...(commented === undefined ? [] : [commented])]);
-  const name = GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, key, -1) ?? encodeURIComponent(key);
-  return GLib.build_filenamev([GLib.get_user_cache_dir(), 'sefaria-gnome', 'translations', `${name}.json`]);
+  return cachePath([p.ref, only ?? '', p.heVersion, p.enVersion, o.language, o.tool, o.model.trim(), ...(commented === undefined ? [] : [commented])]);
 }
 
 function readCache(file: string): Record<string, string> | null {
@@ -91,19 +88,13 @@ export function cachedTranslation(p: Passage, o: AiOptions, only?: string): Reco
  * Traduction de `p` (tous ses segments, ou `only`) : cache, sinon appel de l'outil (`force` :
  * retraduire). Segments → texte traduit.
  */
-export async function translate(
-  p: Passage,
-  o: AiOptions,
-  cancellable: Gio.Cancellable,
-  options: { only?: string; force?: boolean; commented?: Commented } = {},
-): Promise<Record<string, string>> {
-  const file = cacheFile(p, o, options.only, options.commented?.ref);
-  if (options.force !== true) {
+/** Cache, sinon appel de l'outil, puis mise en cache (`force` : retraduire). */
+async function cachedRun(file: string, prompt: () => string, labels: readonly string[], o: AiOptions, cancellable: Gio.Cancellable, force: boolean): Promise<Record<string, string>> {
+  if (!force) {
     const hit = readCache(file);
     if (hit !== null) return hit;
   }
-  const labels = options.only === undefined ? p.segments.map((s) => s.label) : [options.only];
-  const result = parseAiResponse(await run(o, buildPrompt(p, o.language, options.only, options.commented), cancellable), labels);
+  const result = parseAiResponse(await run(o, prompt(), cancellable), labels);
   try {
     GLib.mkdir_with_parents(GLib.path_get_dirname(file), 0o755);
     GLib.file_set_contents(file, JSON.stringify(result));
@@ -111,4 +102,54 @@ export async function translate(
     console.error(`traduction non mise en cache : ${String(error)}`);
   }
   return result;
+}
+
+function cachePath(key: unknown): string {
+  // pas de NUL dans la clé : compute_checksum_for_string s'arrêterait au premier
+  const text = JSON.stringify(key);
+  const name = GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, text, -1) ?? encodeURIComponent(text);
+  return GLib.build_filenamev([GLib.get_user_cache_dir(), 'sefaria-gnome', 'translations', `${name}.json`]);
+}
+
+/**
+ * Traduction de `p` (tous ses segments, ou `only`) : cache, sinon appel de l'outil (`force` :
+ * retraduire). Segments → texte traduit.
+ */
+export function translate(
+  p: Passage,
+  o: AiOptions,
+  cancellable: Gio.Cancellable,
+  options: { only?: string; force?: boolean; commented?: Commented } = {},
+): Promise<Record<string, string>> {
+  const labels = options.only === undefined ? p.segments.map((s) => s.label) : [options.only];
+  return cachedRun(cacheFile(p, o, options.only, options.commented?.ref), () => buildPrompt(p, o.language, options.only, options.commented), labels, o, cancellable, options.force === true);
+}
+
+/**
+ * Traduction ensemble des commentaires d'un auteur sur le verset `commented` de `section` ;
+ * réponse : pour chaque commentaire (par référence), segments → texte traduit.
+ */
+export async function translateCommentaries(
+  passages: readonly Passage[],
+  section: Passage,
+  commented: string,
+  segmentRef: (label: string) => string,
+  author: string,
+  o: AiOptions,
+  cancellable: Gio.Cancellable,
+): Promise<Map<string, Record<string, string>>> {
+  const comments: Commentary[] = passages.map((passage, i) => ({ id: `c${i + 1}`, passage }));
+  const labels = comments.flatMap((c) => c.passage.segments.map((s) => commentaryKey(c, s.label)));
+  const key = ['commentaires', passages.map((p) => [p.ref, p.heVersion, p.enVersion]), commented, section.ref, section.heVersion, section.enVersion, o.language, o.tool, o.model.trim()];
+  const values = await cachedRun(cachePath(key), () => buildCommentaryPrompt(comments, section, commented, segmentRef, o.language, author), labels, o, cancellable, false);
+  return new Map(
+    comments.map((c) => {
+      const out: Record<string, string> = {};
+      for (const s of c.passage.segments) {
+        const v = values[commentaryKey(c, s.label)];
+        if (v !== undefined) out[s.label] = v;
+      }
+      return [c.passage.ref, out];
+    }),
+  );
 }

@@ -80,3 +80,48 @@ export function parseAiResponse(text: string, labels: readonly string[]): Record
   if (Object.keys(out).length === 0) throw new Error('aucune traduction dans la réponse de l’IA');
   return out;
 }
+
+/** Commentaire à traduire (une source liée) et son identifiant dans la réponse. */
+export interface Commentary {
+  /** clé de la réponse : « c1 », « c2 »… (segments : « c1.1 », « c1.2 » si plusieurs) */
+  readonly id: string;
+  readonly passage: Passage;
+}
+
+/** Clé d'un segment de commentaire dans la réponse. */
+export const commentaryKey = (c: Commentary, label: string): string => (c.passage.segments.length === 1 ? c.id : `${c.id}.${label}`);
+
+/**
+ * Invite pour traduire ensemble les commentaires d'un auteur sur un verset : section entière de
+ * l'onglet en contexte (verset commenté signalé), puis chaque commentaire avec la traduction de
+ * Sefaria en appui.
+ */
+export function buildCommentaryPrompt(comments: readonly Commentary[], section: Passage, commented: string, segmentRef: (label: string) => string, language: string, author: string): string {
+  const sectionLines = section.segments.map((s) => {
+    const mark = segmentRef(s.label) === commented ? '  ← VERSET COMMENTÉ' : '';
+    const en = plainText(s.en);
+    return `(${s.label}) ${plainText(s.he)}${mark}${en === '' ? '' : `\n    (traduction : ${en})`}`;
+  });
+  const commentLines = comments.flatMap((c) => [
+    `— ${c.passage.ref} :`,
+    ...c.passage.segments.map((s) => {
+      const en = plainText(s.en);
+      return `[${commentaryKey(c, s.label)}] ${plainText(s.he)}${en === '' ? '' : `\n    (traduction existante : ${en})`}`;
+    }),
+  ]);
+  return [
+    `Tu traduis des commentaires juifs classiques de l'hébreu ou de l'araméen vers le ${languageLabel(language)}.`,
+    `Voici les commentaires de ${author} sur ${commented}, dans leur ordre ; ils se suivent et peuvent se répondre.`,
+    `Pour les comprendre, voici d'abord la section ${section.ref} (${section.heRef}) qui les entoure (ne pas la traduire), le verset commenté signalé :`,
+    '',
+    ...sectionLines,
+    '',
+    `Commentaires à traduire (avec la traduction de Sefaria quand elle existe, à utiliser comme appui seulement, pas à recopier) :`,
+    '',
+    ...commentLines,
+    '',
+    `Traduis chaque commentaire en ${languageLabel(language)}, fidèlement, en tenant compte du verset, de la section et des autres commentaires ;`,
+    "les mots du verset cités en tête d'un commentaire (dibour hamathil) se traduisent comme dans le verset ; sans notes ni ajouts.",
+    'Réponds UNIQUEMENT par un objet JSON dont les clés sont les identifiants entre crochets (ex. "c1", "c2.1") et les valeurs les traductions, sans texte autour.',
+  ].join('\n');
+}

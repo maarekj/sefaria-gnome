@@ -6,7 +6,7 @@ import Pango from 'gi://Pango';
 import Gio from 'gi://Gio';
 import { type LinkBook, type LinkCategory, type Passage, segmentRef } from '../shared/api.ts';
 import { languageLabel } from '../shared/aiprompt.ts';
-import { translate } from '../shared/translate.ts';
+import { translate, translateCommentaries } from '../shared/translate.ts';
 import { errorMessage } from '../shared/errors.ts';
 import { escapeMarkup, sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Reader } from '../shared/reader.ts';
@@ -35,7 +35,7 @@ function textLabel(markup: string, hebrew: boolean): Gtk.Label {
 }
 
 /** Une source : référence (ouvre le passage) puis son texte. */
-function sourceBlock(reader: Reader, ref: string, openSource: OpenSource): Gtk.Widget {
+function sourceBlock(reader: Reader, ref: string, openSource: OpenSource, group: CommentaryGroup): Gtk.Widget {
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, cssClasses: ['link-source'] });
   const header = new Gtk.Box({ spacing: 6 });
   header.append(new Gtk.Label({ label: ref, xalign: 0, hexpand: true, wrap: true, cssClasses: ['heading'] }));
@@ -59,7 +59,6 @@ function sourceBlock(reader: Reader, ref: string, openSource: OpenSource): Gtk.W
       body.append(new Gtk.Label({ label: `Texte indisponible : ${error}`, xalign: 0, wrap: true, cssClasses: ['dim-label'] }));
       return;
     }
-    const passage = p;
     const translations = new Map<string, Gtk.Label>();
     for (const s of p.segments) {
       if (s.he !== '') body.append(textLabel(sefariaMarkup(s.he), true));
@@ -68,58 +67,98 @@ function sourceBlock(reader: Reader, ref: string, openSource: OpenSource): Gtk.W
       translations.set(s.label, en);
       body.append(en);
     }
-    if (reader.store.aiOptions() !== null) header.insert_child_after(aiButton(reader, passage, translations, ref), header.get_first_child());
+    if (reader.store.aiOptions() !== null && reader.selected.peek() !== null) header.insert_child_after(group.button(ref, translations), header.get_first_child());
   })();
   return box;
 }
 
+/** Source affichée : libellés de traduction (par segment), note et bouton. */
+interface Block {
+  readonly translations: Map<string, Gtk.Label>;
+  readonly note: Gtk.Label;
+  readonly button: Gtk.Button;
+}
+
 /**
- * « Traduire (IA) » d'une source : toute la source, avec le verset commenté (segment sélectionné de
- * l'onglet) en contexte ; la traduction remplace celle de Sefaria.
+ * Traduction groupée des commentaires d'un auteur sur le verset sélectionné : une seule requête
+ * pour toutes ses sources, avec la section de l'onglet en contexte.
  */
-function aiButton(reader: Reader, p: Passage, translations: Map<string, Gtk.Label>, ref: string): Gtk.Widget {
-  const button = new Gtk.Button({ label: 'Traduire', tooltipText: `Traduire ${ref} (IA)`, cssClasses: ['flat', 'small-button'], valign: Gtk.Align.START });
-  const note = new Gtk.Label({ visible: false, xalign: 0, wrap: true, cssClasses: ['caption', 'dim-label'] });
-  // la note s'affiche sous le dernier texte de la source
-  const parent = [...translations.values()].at(-1)?.get_parent();
-  if (parent instanceof Gtk.Box) parent.append(note);
-  button.connect('clicked', () => {
-    const o = reader.store.aiOptions();
-    if (o === null) return;
-    const base = reader.passage.peek();
-    const selected = reader.selected.peek();
-    const segment = base?.state === 'ready' && selected !== null ? base.value.segments.find((s) => segmentRef(base.value, s.label) === selected) : undefined;
-    const commented = selected !== null && segment !== undefined ? { ref: selected, he: segment.he, en: segment.en } : undefined;
-    button.sensitive = false;
-    note.visible = true;
-    note.label = `Traduction en ${languageLabel(o.language)}…`;
+class CommentaryGroup {
+  readonly #reader: Reader;
+  readonly #book: LinkBook;
+  readonly #blocks = new Map<string, Block>();
+  #running = false;
+
+  constructor(reader: Reader, book: LinkBook) {
+    this.#reader = reader;
+    this.#book = book;
+  }
+
+  /** Bouton « Traduire » d'une source affichée. */
+  button(ref: string, translations: Map<string, Gtk.Label>): Gtk.Widget {
+    const button = new Gtk.Button({ label: 'Traduire', tooltipText: `Traduire les commentaires de ${this.#book.title} sur ce verset (IA)`, cssClasses: ['flat', 'small-button'], valign: Gtk.Align.START, sensitive: !this.#running });
+    const note = new Gtk.Label({ visible: false, xalign: 0, wrap: true, cssClasses: ['caption', 'dim-label'] });
+    // la note s'affiche sous le dernier texte de la source
+    const parent = [...translations.values()].at(-1)?.get_parent();
+    if (parent instanceof Gtk.Box) parent.append(note);
+    this.#blocks.set(ref, { translations, note, button });
+    button.connect('clicked', () => this.#translate());
+    return button;
+  }
+
+  #notes(text: string, buttons: boolean): void {
+    for (const b of this.#blocks.values()) {
+      b.note.label = text;
+      b.note.visible = text !== '';
+      b.button.sensitive = buttons;
+    }
+  }
+
+  #translate(): void {
+    const o = this.#reader.store.aiOptions();
+    const base = this.#reader.passage.peek();
+    const commented = this.#reader.selected.peek();
+    if (o === null || base?.state !== 'ready' || commented === null || this.#running) return;
+    const section = base.value;
+    this.#running = true;
+    const refs = this.#book.refs;
+    this.#notes(`Traduction des ${refs.length} commentaire${refs.length > 1 ? 's' : ''} en ${languageLabel(o.language)}…`, false);
     void (async () => {
       try {
-        const values = await translate(p, o, new Gio.Cancellable(), commented === undefined ? {} : { commented });
-        for (const [label, l] of translations) {
-          const text = values[label];
-          if (text === undefined) continue;
-          l.label = withDirection(escapeMarkup(text), false);
-          l.visible = true;
+        // tous les commentaires de l'auteur sur ce verset (même non affichés : contexte), cache partagé
+        // texte indisponible pour une source : traduite sans elle
+        const settled = await Promise.allSettled(refs.map((r) => this.#reader.store.linkedText(r)));
+        const passages = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+        if (passages.length === 0) throw new Error('textes des commentaires indisponibles');
+        const result = await translateCommentaries(passages, section, commented, (label) => segmentRef(section, label), this.#book.title, o, new Gio.Cancellable());
+        for (const [ref, b] of this.#blocks) {
+          const values = result.get(ref) ?? {};
+          for (const [label, l] of b.translations) {
+            const text = values[label];
+            if (text === undefined) continue;
+            l.label = withDirection(escapeMarkup(text), false);
+            l.visible = true;
+          }
         }
-        note.label = `Traduction par IA (${o.tool === 'claude' ? 'Claude Code' : 'opencode'})`;
+        this.#notes(`Traduction par IA (${o.tool === 'claude' ? 'Claude Code' : 'opencode'})`, false);
       } catch (error) {
-        note.label = `Traduction impossible : ${errorMessage(error)}`;
-        button.sensitive = true;
+        this.#notes(`Traduction impossible : ${errorMessage(error)}`, true);
+      } finally {
+        this.#running = false;
       }
     })();
-  });
-  return button;
+  }
 }
 
 /** Page d'une source : textes de ses références, par lots. */
 function bookPage(reader: Reader, book: LinkBook, openSource: OpenSource): Adw.NavigationPage {
+  const group = new CommentaryGroup(reader, book);
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 18, marginTop: 12, marginBottom: 18, marginStart: 12, marginEnd: 12 });
   let shown = 0;
   const more = new Gtk.Button({ label: 'Afficher la suite', halign: Gtk.Align.CENTER, cssClasses: ['pill'] });
   const showMore = (): void => {
     if (more.get_parent() !== null) box.remove(more);
-    for (const ref of book.refs.slice(shown, shown + PAGE)) box.append(sourceBlock(reader, ref, openSource));
+    for (const ref of book.refs.slice(shown, shown + PAGE)) box.append(sourceBlock(reader, ref, openSource, group));
     shown = Math.min(book.refs.length, shown + PAGE);
     if (shown < book.refs.length) box.append(more);
   };

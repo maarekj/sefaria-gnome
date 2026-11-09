@@ -297,10 +297,14 @@ def test_traduction_d_un_commentaire(run_app):
     app.point(app.find('label', contains='When God began to create'))
     app.point(app.find('label', 'Rashi'))
     assert app.text_visible('Rabbi Isaac said')
-    # premier bouton « Traduire » : la première source (Rashi on Genesis 1:1:1)
+    # « Traduire » sur la première source : les 3 commentaires de Rashi sur le verset, en une invite
     app.click('button', 'Traduire')
-    assert app.text_visible('[IA] traduction du segment 1', 15)
+    assert app.text_visible('[IA] traduction du segment c1', 15)
+    assert app.text_visible('[IA] traduction du segment c3')
     app.text_gone('Rabbi Isaac said')
-    prompt = ai_prompts(fake)[-1]['prompt']
-    # contexte : le commentaire et le verset commenté
-    assert 'Rashi on Genesis 1:1:1' in prompt and 'Ce texte commente Genesis 1:1' in prompt and 'When God began to create' in prompt
+    prompts = ai_prompts(fake)
+    assert len(prompts) == 1
+    prompt = prompts[0]['prompt']
+    # contexte : la section entière (verset signalé, versets voisins) et tous les commentaires
+    assert all(f'Rashi on Genesis 1:1:{i}' in prompt for i in (1, 2, 3))
+    assert 'VERSET COMMENTÉ' in prompt and 'God said, “Let there be light”' in prompt
