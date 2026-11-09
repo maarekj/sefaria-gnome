@@ -3,6 +3,9 @@ import GLib from 'gi://GLib';
 import { type Accessor, createState, type Setter } from 'gnim';
 import * as z from 'zod/mini';
 
+/** Outil de traduction par IA. */
+export type AiTool = 'none' | 'claude' | 'opencode';
+
 /** Textes affichés : hébreu et traduction, hébreu seul, traduction seule. */
 export type Display = 'both' | 'hebrew' | 'translation';
 
@@ -23,6 +26,10 @@ const RawSettings = z.looseObject({
   language: z.optional(z.string()),
   /** calendrier de diaspora (sinon d'Israël) pour les lectures du jour */
   diaspora: z.optional(z.boolean()),
+  /** traduction par IA : outil (none, claude, opencode), modèle (vide : défaut), langue cible */
+  aiTool: z.optional(z.enum(['none', 'claude', 'opencode'])),
+  aiModel: z.optional(z.string()),
+  aiLanguage: z.optional(z.string()),
   books: z.optional(z.record(z.string(), z.object({ hebrew: z.optional(z.string()), translation: z.optional(z.object({ language: z.string(), title: z.string() })) }))),
 });
 
@@ -32,10 +39,13 @@ export interface Settings {
   readonly display: Display;
   readonly language: string;
   readonly diaspora: boolean;
+  readonly aiTool: AiTool;
+  readonly aiModel: string;
+  readonly aiLanguage: string;
   readonly books: Readonly<Record<string, BookVersions>>;
 }
 
-const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', diaspora: true, books: {} };
+const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', diaspora: true, aiTool: 'none', aiModel: '', aiLanguage: 'french', books: {} };
 
 const decoder = new TextDecoder();
 
@@ -56,6 +66,9 @@ export function readSettings(file = settingsFile()): Settings {
         display: d.display ?? DEFAULTS.display,
         language: d.language ?? DEFAULTS.language,
         diaspora: d.diaspora ?? DEFAULTS.diaspora,
+        aiTool: d.aiTool ?? DEFAULTS.aiTool,
+        aiModel: d.aiModel ?? DEFAULTS.aiModel,
+        aiLanguage: d.aiLanguage ?? DEFAULTS.aiLanguage,
         books,
       };
     }

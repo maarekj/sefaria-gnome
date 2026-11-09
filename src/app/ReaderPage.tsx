@@ -5,7 +5,7 @@ import Pango from 'gi://Pango';
 import { type Accessor, createComputed, createState, onCleanup } from 'gnim';
 import { type Passage, type Segment, segmentRef } from '../shared/api.ts';
 import { chapterTitle, passageItems } from '../shared/chapters.ts';
-import { sefariaMarkup, withDirection } from '../shared/markup.ts';
+import { escapeMarkup, sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
@@ -98,13 +98,18 @@ function clickable(widget: Gtk.Widget, select: () => void): Gtk.Widget {
   return widget;
 }
 
-function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) => void): SegmentWidgets {
+/** `ai` : traductions par IA (numéro → texte) remplaçant celles de Sefaria, et leur auteur. */
+function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) => void, ai: { values: Readonly<Record<string, string>>; label: string } | null): SegmentWidgets {
   const widgets: SegmentWidgets = new Map();
   for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
   const { display } = layout;
   // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
-  const shown: Display = display === 'translation' && p.enVersion === '' ? 'hebrew' : display === 'hebrew' && p.heVersion === '' ? 'translation' : display;
-  const visible = p.segments.filter((s) => !(shown === 'hebrew' && s.he === '') && !(shown === 'translation' && s.en === ''));
+  const hasTranslation = ai !== null || p.enVersion !== '';
+  const shown: Display = display === 'translation' && !hasTranslation ? 'hebrew' : display === 'hebrew' && p.heVersion === '' ? 'translation' : display;
+  // traduction par IA : texte brut, échappé pour le balisage
+  // segment non traduit par l'IA : rien plutôt que le texte de Sefaria (pas de mélange sous la mention « IA »)
+  const segs = ai === null ? p.segments : p.segments.map((s) => ({ ...s, en: escapeMarkup(ai.values[s.label] ?? '') }));
+  const visible = segs.filter((s) => !(shown === 'hebrew' && s.he === '') && !(shown === 'translation' && s.en === ''));
   for (const item of passageItems(visible, p.multiChapter)) {
     if (item.kind === 'chapter') {
       const heading = chapterHeading(item.chapter, shown, layout.columns && shown === 'both');
@@ -116,7 +121,7 @@ function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) =>
     widgets.set(ref, w);
     box.append(w);
   }
-  const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : p.enVersion].filter((v) => v !== '').join(' · ');
+  const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : ai === null ? p.enVersion : `Traduction par IA : ${ai.label}`].filter((v) => v !== '').join(' · ');
   if (versions !== '') box.append(new Gtk.Label({ label: versions, wrap: true, marginTop: 18, cssClasses: ['caption', 'dim-label'] }));
   return widgets;
 }
@@ -144,7 +149,8 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
   /** sélection (un clic sur le segment déjà sélectionné, ex. pour en sélectionner le texte, ne ferme rien) */
   const select = (ref: string): void => reader.select(ref);
   const render = (box: Gtk.Box, p: Passage): void => {
-    segments = fill(box, p, layout(), select);
+    const a = reader.ai.peek();
+    segments = fill(box, p, layout(), select, a.state === 'ready' && a.ref === p.ref ? a : null);
     highlight();
   };
   const ready = (): Passage | null => {
@@ -170,7 +176,14 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
         });
       }}
     >
-      <Gtk.Stack visibleChildName={reader.passage(readerScreen)} transitionType={Gtk.StackTransitionType.CROSSFADE}>
+      <Gtk.Box orientation={Gtk.Orientation.VERTICAL}>
+      <Adw.Banner
+        title={reader.ai((a) => (a.state === 'loading' ? `Traduction par ${a.tool} en cours…` : a.state === 'error' ? a.message : ''))}
+        buttonLabel={reader.ai((a) => (a.state === 'loading' ? 'Annuler' : 'Fermer'))}
+        revealed={reader.ai((a) => a.state === 'loading' || a.state === 'error')}
+        onButtonClicked={() => reader.cancelAi()}
+      />
+      <Gtk.Stack vexpand visibleChildName={reader.passage(readerScreen)} transitionType={Gtk.StackTransitionType.CROSSFADE}>
         <Adw.StatusPage $type="named" name="empty" iconName="accessories-dictionary-symbolic" title="Choisissez un texte" description="Parcourez la bibliothèque ou saisissez une référence." />
         <Adw.Spinner $type="named" name="loading" widthRequest={32} heightRequest={32} halign={Gtk.Align.CENTER} valign={Gtk.Align.CENTER} />
         <Adw.StatusPage $type="named" name="error" iconName="dialog-warning-symbolic" title="Texte introuvable" description={reader.passage((p) => (p?.state === 'error' ? p.message : ''))} />
@@ -226,6 +239,7 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
                 };
                 onCleanup(columns.subscribe(relayout));
                 onCleanup(display.subscribe(relayout));
+                onCleanup(reader.ai.subscribe(relayout));
                 // segment sélectionné : mis en évidence
                 onCleanup(reader.selected.subscribe(highlight));
               }}
@@ -233,6 +247,7 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
           </Adw.Clamp>
         </Gtk.ScrolledWindow>
       </Gtk.Stack>
+      </Gtk.Box>
     </Adw.OverlaySplitView>
   );
   if (!(view instanceof Gtk.Widget)) throw new TypeError('widget attendu');

@@ -3,7 +3,10 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 import Pango from 'gi://Pango';
-import type { LinkBook, LinkCategory, Passage } from '../shared/api.ts';
+import Gio from 'gi://Gio';
+import { type LinkBook, type LinkCategory, type Passage, segmentRef } from '../shared/api.ts';
+import { languageLabel } from '../shared/aiprompt.ts';
+import { translate } from '../shared/translate.ts';
 import { errorMessage } from '../shared/errors.ts';
 import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Reader } from '../shared/reader.ts';
@@ -100,6 +103,55 @@ function categoriesList(reader: Reader, categories: readonly LinkCategory[], pus
   return scrolled(box);
 }
 
+/** « Traduire ce verset (IA) » : traduction du segment `ref` du passage de l'onglet, section en contexte. */
+function verseTranslation(reader: Reader): { widget: Gtk.Widget; select: (ref: string | null) => void; dispose: () => void } {
+  const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, marginStart: 12, marginEnd: 12, marginTop: 6, marginBottom: 6 });
+  const button = new Gtk.Button({ label: 'Traduire ce verset (IA)', halign: Gtk.Align.START, cssClasses: ['pill', 'small'] });
+  const result = new Gtk.Label({ xalign: 0, wrap: true, selectable: true, visible: false, cssClasses: ['translation', 'link-text'] });
+  box.append(button);
+  box.append(result);
+  let current: string | null = null;
+  let cancellable: Gio.Cancellable | null = null;
+  button.connect('clicked', () => {
+    const p = reader.passage.peek();
+    const o = reader.store.aiOptions();
+    const ref = current;
+    const segment = p?.state === 'ready' && ref !== null ? p.value.segments.find((s) => segmentRef(p.value, s.label) === ref) : undefined;
+    if (p?.state !== 'ready' || o === null || ref === null || segment === undefined) return;
+    cancellable?.cancel();
+    const c = new Gio.Cancellable();
+    cancellable = c;
+    button.sensitive = false;
+    result.visible = true;
+    result.label = `Traduction en ${languageLabel(o.language)}…`;
+    void (async () => {
+      let text: string;
+      try {
+        text = (await translate(p.value, o, c, { only: segment.label }))[segment.label] ?? '';
+      } catch (error) {
+        text = `Traduction impossible : ${errorMessage(error)}`;
+      }
+      if (cancellable !== c || current !== ref) return;
+      result.label = text;
+      button.sensitive = true;
+    })();
+  });
+  const select = (ref: string | null): void => {
+    cancellable?.cancel();
+    cancellable = null;
+    current = ref;
+    result.visible = false;
+    result.label = '';
+    button.sensitive = true;
+    box.visible = ref !== null && reader.store.aiOptions() !== null;
+  };
+  // outil activé / désactivé dans les préférences : bouton affiché ou masqué sans attendre
+  const unsubscribe = reader.store.aiChanged((): void => {
+    box.visible = current !== null && reader.store.aiOptions() !== null;
+  });
+  return { widget: box, select, dispose: unsubscribe };
+}
+
 /** Panneau latéral : liens du segment sélectionné de l'onglet (`reader.selected`). */
 export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gtk.Widget; dispose: () => void } {
   const nav = new Adw.NavigationView();
@@ -112,6 +164,8 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
   header.pack_end(closeButton);
   const view = new Adw.ToolbarView({ content });
   view.add_top_bar(header);
+  const verse = verseTranslation(reader);
+  view.add_top_bar(verse.widget);
   nav.add(new Adw.NavigationPage({ title: 'Liens', child: view, tag: 'links' }));
 
   let current: string | null = null;
@@ -121,6 +175,7 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
     const ref = reader.selected.peek();
     if (ref === current) return;
     current = ref;
+    verse.select(ref);
     nav.pop_to_tag('links');
     title.subtitle = ref ?? '';
     for (let c = content.get_first_child(); c !== null; c = content.get_first_child()) content.remove(c);
@@ -143,5 +198,11 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
   };
   show();
   const unsubscribe = reader.selected.subscribe(show);
-  return { widget: nav, dispose: unsubscribe };
+  return {
+    widget: nav,
+    dispose: () => {
+      unsubscribe();
+      verse.dispose();
+    },
+  };
 }

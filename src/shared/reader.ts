@@ -1,8 +1,17 @@
 // Un onglet de lecture : passage, segment sélectionné, versions du livre ouvert.
+import Gio from 'gi://Gio';
 import { type Accessor, createState, type Setter } from 'gnim';
 import type { Passage, VersionInfo } from './api.ts';
 import { errorMessage } from './errors.ts';
 import type { Load, Store } from './store.ts';
+import { translate } from './translate.ts';
+
+/** Traduction par IA de la section affichée. */
+export type AiState =
+  | { readonly state: 'off' }
+  | { readonly state: 'loading'; readonly tool: string }
+  | { readonly state: 'ready'; readonly ref: string; readonly values: Readonly<Record<string, string>>; readonly label: string }
+  | { readonly state: 'error'; readonly message: string };
 
 export class Reader {
   readonly store: Store;
@@ -25,6 +34,12 @@ export class Reader {
   readonly #setCanGoBack: Setter<boolean>;
   readonly canGoForward: Accessor<boolean>;
   readonly #setCanGoForward: Setter<boolean>;
+  /** traduction par IA : demandée pour l'onglet (suit la navigation), et son état */
+  readonly aiOn: Accessor<boolean>;
+  readonly #setAiOn: Setter<boolean>;
+  readonly ai: Accessor<AiState>;
+  readonly #setAi: Setter<AiState>;
+  #aiCancel: Gio.Cancellable | null = null;
 
   /** Référence demandée (champ de saisie d'un onglet en chargement ou en erreur). */
   get wanted(): string {
@@ -38,6 +53,59 @@ export class Reader {
     [this.selected, this.#setSelected] = createState<string | null>(null);
     [this.canGoBack, this.#setCanGoBack] = createState(false);
     [this.canGoForward, this.#setCanGoForward] = createState(false);
+    [this.aiOn, this.#setAiOn] = createState(false);
+    [this.ai, this.#setAi] = createState<AiState>({ state: 'off' });
+    // nouveau passage affiché : traduit si la traduction par IA est active dans l'onglet
+    this.passage.subscribe(() => {
+      if (this.passage.peek()?.state === 'ready' && this.aiOn.peek()) this.translateSection();
+    });
+  }
+
+  /** Active / désactive la traduction par IA de l'onglet. */
+  setAi(on: boolean): void {
+    this.#setAiOn(on);
+    if (on) this.translateSection();
+    else {
+      this.#aiCancel?.cancel();
+      this.#setAi({ state: 'off' });
+    }
+  }
+
+  /** Traduit la section affichée (cache, sinon appel de l'outil ; `force` : retraduire). */
+  translateSection(force = false): void {
+    const p = this.passage.peek();
+    const o = this.store.aiOptions();
+    if (p?.state !== 'ready') return;
+    if (o === null) {
+      this.#setAi({ state: 'error', message: 'Traduction par IA désactivée : choisissez un outil dans les préférences.' });
+      return;
+    }
+    this.#aiCancel?.cancel();
+    const cancellable = new Gio.Cancellable();
+    this.#aiCancel = cancellable;
+    const tool = o.tool === 'claude' ? 'Claude Code' : 'opencode';
+    this.#setAi({ state: 'loading', tool });
+    const ref = p.value.ref;
+    void (async () => {
+      let next: AiState;
+      try {
+        next = { state: 'ready', ref, values: await translate(p.value, o, cancellable, { force }), label: `${tool}${o.model.trim() === '' ? '' : ` (${o.model.trim()})`}` };
+      } catch (error) {
+        next = { state: 'error', message: errorMessage(error) };
+      }
+      // annulée ou dépassée (autre passage, autre demande)
+      if (this.#aiCancel !== cancellable || cancellable.is_cancelled()) return;
+      this.#aiCancel = null;
+      this.#setAi(next);
+    })();
+  }
+
+  /** Annule la traduction en cours et quitte le mode IA de l'onglet (bouton du bandeau). */
+  cancelAi(): void {
+    this.#aiCancel?.cancel();
+    this.#aiCancel = null;
+    this.#setAiOn(false);
+    this.#setAi({ state: 'off' });
   }
 
   /** Référence affichée (ou demandée), vide si aucune. */
@@ -80,6 +148,10 @@ export class Reader {
     this.#syncHistory();
     this.#wanted = wanted;
     this.#setSelected(null);
+    // traduction de l'ancien passage : abandonnée (la nouvelle suit le chargement)
+    this.#aiCancel?.cancel();
+    this.#aiCancel = null;
+    if (this.ai.peek().state !== 'off') this.#setAi({ state: 'off' });
     this.#setPassage({ state: 'loading' });
     void (async () => {
       let next: Load<Passage>;

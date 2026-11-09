@@ -112,6 +112,9 @@ class App:
             # réglages et cache propres au test : jamais ceux de l'utilisateur
             XDG_DATA_HOME=str(fake.dir / 'data'),
             XDG_CACHE_HOME=str(fake.dir / 'cache'),
+            # traduction par IA : faux outil, invites enregistrées
+            SEFARIA_GNOME_AI_COMMAND=str(ROOT / 'e2e' / 'fake_ai.py'),
+            FAKE_AI_LOG=str(fake.dir / 'ai.log'),
             XDG_CONFIG_HOME=str(fake.dir / 'config'),
             # identifiant propre au test (aucune instance partagée)
             SEFARIA_GNOME_APP_ID=f'io.github.maarekj.SefariaGnome.E2e{fake.port}',

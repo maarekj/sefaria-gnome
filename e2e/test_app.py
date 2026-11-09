@@ -1,6 +1,6 @@
 """Parcours principaux : bibliothèque, lecture, navigation entre sections, référence saisie."""
 
-from conftest import wait_until
+from conftest import ROOT, wait_until
 
 
 def test_bibliotheque_puis_lecture(run_app):
@@ -245,3 +245,43 @@ def test_lectures_du_jour(run_app):
     assert app.text_visible('3e montée')
     app.point(app.find('label', '3e montée'))
     wait_until(lambda: any('Genesis%2026%3A13-26%3A22' in r for r in fake.requests()), 5, 'montée demandée')
+
+
+def ai_prompts(fake) -> list[dict]:
+    log = fake.dir / 'ai.log'
+    import json
+    return [json.loads(l) for l in log.read_text().splitlines()] if log.exists() else []
+
+
+def test_traduction_par_ia(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    # désactivée par défaut : choisir Claude Code dans les préférences (dans un GSettings privé)
+    app.key('ctrl+comma')
+    app.point(app.find(None, 'Outil'))
+    app.point(app.find(None, 'Claude Code'))
+    app.key('Escape')
+    app.point(app.find(None, 'Aa'))
+    app.click('toggle button', 'Traduire en français')
+    assert app.text_visible('Traduction par Claude Code en cours')
+    assert app.text_visible('[IA] traduction du segment 3', 15)
+    app.text_gone('When God began to create heaven and earth')
+    prompt = ai_prompts(fake)[0]['prompt']
+    # contexte : référence, hébreu de la section, traduction de Sefaria en appui
+    import json, re
+    hebrew = json.loads((ROOT / 'e2e' / 'fixtures' / 'texts.json').read_text())['Genesis 1']['versions'][0]['text'][1]
+    assert 'Genesis 1' in prompt and re.sub(r'<[^>]+>', '', hebrew) in prompt and 'When God began to create' in prompt
+    # retour à Sefaria
+    app.click('toggle button', 'Traduire en français')
+    assert app.text_visible('When God began to create heaven and earth')
+    # cache : réactivation sans nouvel appel
+    app.click('toggle button', 'Traduire en français')
+    assert app.text_visible('[IA] traduction du segment 1')
+    assert len(ai_prompts(fake)) == 1
+    app.key('Escape')
+    # verset seul, depuis le panneau des liens
+    app.point(app.find('label', contains='[IA] traduction du segment 2'))
+    app.click('button', 'Traduire ce verset (IA)')
+    wait_until(lambda: len(ai_prompts(fake)) == 2, 10, 'verset traduit')
+    assert 'uniquement le segment [2]' in ai_prompts(fake)[1]['prompt']
+    assert app.text_visible('[IA] traduction du verset seul 2')

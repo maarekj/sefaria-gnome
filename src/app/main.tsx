@@ -13,6 +13,7 @@ import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
 import type { Tabs } from './Tabs.ts';
+import { openPreferences } from './Preferences.ts';
 import { STYLESHEET } from './style.ts';
 import { canGrow, canShrink, scaleCss, stepScale } from './TextScale.ts';
 
@@ -33,6 +34,12 @@ const store = new Store(new SefariaClient(), (ref) => {
   if (tr?.language === s.language) return { translation: tr, hebrew: chosen?.hebrew };
   return { translation: { language: s.language }, fallback: tr, hebrew: chosen?.hebrew };
 });
+// traduction par IA : réglages des préférences
+store.aiOptions = () => {
+  const s = settings.value.peek();
+  return s.aiTool === 'none' ? null : { tool: s.aiTool, model: s.aiModel, language: s.aiLanguage };
+};
+store.aiChanged = (f) => settings.value.subscribe(f);
 let mainWindow: Gtk.Window | null = null;
 let tabs: Tabs | null = null;
 
@@ -122,6 +129,14 @@ const followHistory = (): void => {
   sync();
   historySubs = [r.canGoBack.subscribe(sync), r.canGoForward.subscribe(sync)];
 };
+
+/** app.preferences : fenêtre des préférences (Ctrl+,) */
+const preferences = new Gio.SimpleAction({ name: 'preferences' });
+preferences.connect('activate', () => {
+  if (mainWindow !== null) openPreferences(mainWindow, settings);
+});
+app.add_action(preferences);
+app.set_accels_for_action('app.preferences', ['<Control>comma']);
 
 const quit = new Gio.SimpleAction({ name: 'quit' });
 quit.connect('activate', () => app.quit());

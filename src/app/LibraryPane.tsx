@@ -1,6 +1,7 @@
 // Barre latérale : la bibliothèque Sefaria, une page par catégorie (Adw.NavigationView), puis la
 // table des matières d'un livre (grille des sections, ou parties d'un livre complexe).
 import Adw from 'gi://Adw?version=1';
+import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 import { onCleanup } from 'gnim';
 import type { Book, Category, DailyReading, LibraryNode, Parasha, Toc, TocNode, TocSection } from '../shared/api.ts';
@@ -252,6 +253,11 @@ export function LibraryPane({ tabs, reading, settings }: { tabs: Tabs; reading: 
     </Gtk.Stack>
   );
   if (!(root instanceof Gtk.Widget)) throw new TypeError('widget attendu');
-  nav.add(page('Bibliothèque', root, 'library'));
+  // menu principal
+  const menu = new Gio.Menu();
+  menu.append('Préférences', 'app.preferences');
+  menu.append('À propos de Sefaria pour GNOME', 'app.about');
+  menu.append('Quitter', 'app.quit');
+  nav.add(page('Bibliothèque', root, 'library', new Gtk.MenuButton({ iconName: 'open-menu-symbolic', tooltipText: 'Menu principal', menuModel: menu, primary: true })));
   return new Adw.NavigationPage({ title: 'Bibliothèque', child: nav });
 }

@@ -7,6 +7,7 @@ import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Accessor } from 'gnim';
 import type { Reader } from '../shared/reader.ts';
 import { scaleLabel } from './TextScale.ts';
+import { languageLabel } from '../shared/aiprompt.ts';
 
 const DISPLAYS: readonly (readonly [Display, string])[] = [
   ['both', 'Les deux'],
@@ -53,6 +54,23 @@ function build(box: Gtk.Box, store: Reader, settings: SettingsStore, passage: Pa
   box.append(heading('Affichage'));
   box.append(displays);
   if (passage === null) return;
+
+  // traduction par IA de la section (onglet courant)
+  box.append(heading('Traduction par IA'));
+  if (s.aiTool === 'none') {
+    box.append(new Gtk.Label({ label: 'Désactivée : choisissez Claude Code ou opencode dans les préférences.', xalign: 0, wrap: true, maxWidthChars: 32, cssClasses: ['dim-label'] }));
+  } else {
+    const ai = new Gtk.Box({ spacing: 6 });
+    const on = new Gtk.ToggleButton({ label: `Traduire en ${languageLabel(s.aiLanguage)}`, active: store.aiOn.peek(), hexpand: true, tooltipText: `Traduire la section avec ${s.aiTool === 'claude' ? 'Claude Code' : 'opencode'}` });
+    on.connect('toggled', () => {
+      if (on.active !== store.aiOn.peek()) store.setAi(on.active);
+    });
+    ai.append(on);
+    const again = new Gtk.Button({ iconName: 'view-refresh-symbolic', tooltipText: 'Retraduire la section', sensitive: store.aiOn.peek() && store.ai.peek().state !== 'loading' });
+    again.connect('clicked', () => store.translateSection(true));
+    ai.append(again);
+    box.append(ai);
+  }
 
   const versions = store.versions.peek();
   if (versions?.state !== 'ready') {
@@ -191,7 +209,7 @@ export function versionsMenu(current: Accessor<Reader>, settings: SettingsStore,
   const follow = (): void => {
     tabSubs.forEach((u) => u());
     const r = current.peek();
-    tabSubs = [r.versions.subscribe(refresh), r.passage.subscribe(refresh)];
+    tabSubs = [r.versions.subscribe(refresh), r.passage.subscribe(refresh), r.ai.subscribe(refresh), r.aiOn.subscribe(refresh)];
     shownBook = '';
     refresh();
   };

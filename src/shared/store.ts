@@ -3,6 +3,7 @@ import { type Accessor, createState, type Setter } from 'gnim';
 import GLib from 'gi://GLib';
 import type { DailyReading, LibraryNode, LinkCategory, Passage, Toc, VersionInfo, Wanted } from './api.ts';
 import type { SefariaClient } from './client.ts';
+import type { AiOptions } from './translate.ts';
 import { errorMessage } from './errors.ts';
 
 /** Chargement asynchrone. */
@@ -26,6 +27,12 @@ function cached<T>(cache: Map<string, Promise<T>>, key: string, load: () => Prom
 export class Store {
   readonly client: SefariaClient;
   readonly versionsFor: VersionsFor;
+  /** réglages de la traduction par IA (null : désactivée) */
+  aiOptions: () => AiOptions | null = () => null;
+  /** abonnement aux changements de réglages de l'IA (retourne la désinscription) */
+  aiChanged: (f: () => void) => () => void = () => (): void => {
+    // aucun réglage à suivre
+  };
   readonly library: Accessor<Load<readonly LibraryNode[]>>;
   readonly #setLibrary: Setter<Load<readonly LibraryNode[]>>;
   readonly #tocs = new Map<string, Promise<Toc>>();

@@ -71,3 +71,14 @@ export function sefariaMarkup(html: string): string {
  * forte, or une traduction commence parfois par un mot hébreu (« בראשית IN THE BEGINNING »).
  */
 export const withDirection = (markup: string, hebrew: boolean): string => `${hebrew ? '\u200F' : '\u200E'}${markup}`;
+
+/** Texte brut d'un HTML de Sefaria (notes retirées), pour l'envoyer à un traducteur. */
+export function plainText(html: string): string {
+  return sefariaMarkup(html)
+    .replaceAll(/<[^>]+>/gu, '')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+    .replaceAll(/\s+/gu, ' ')
+    .trim();
+}
