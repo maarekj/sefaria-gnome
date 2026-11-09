@@ -31,10 +31,15 @@ export class Tabs {
   readonly passage: Accessor<Load<Passage> | null>;
   readonly #tabs = new Map<Adw.TabPage, Tab>();
   readonly #render: RenderTab;
+  /** onglets ou passages modifiés (enregistrement de la session) ; passage affiché dans un onglet */
+  readonly #changed: () => void;
+  readonly #visited: (p: Passage) => void;
 
-  constructor(store: Store, render: RenderTab) {
+  constructor(store: Store, render: RenderTab, hooks: { changed?: () => void; visited?: (p: Passage) => void } = {}) {
     this.store = store;
     this.#render = render;
+    this.#changed = hooks.changed ?? ((): void => undefined);
+    this.#visited = hooks.visited ?? ((): void => undefined);
     // premier onglet créé avant `current` : le rendu d'un onglet ne doit pas lire `tabs.current`
     const first = this.#add(null);
     [this.current, this.#setCurrent] = createState(first);
@@ -43,13 +48,16 @@ export class Tabs {
       const page = this.view.selectedPage;
       const tab = page === null ? undefined : this.#tabs.get(page);
       if (tab !== undefined) this.#setCurrent(tab.reader);
+      this.#changed();
     });
+    this.view.connect('page-reordered', () => this.#changed());
     this.view.connect('close-page', (_v: Adw.TabView, page: Adw.TabPage) => {
       this.#tabs.get(page)?.dispose();
       this.#tabs.delete(page);
       this.view.close_page_finish(page, true);
       // dernier onglet fermé : un onglet vide le remplace
       if (this.#tabs.size === 0) this.newTab();
+      this.#changed();
       return true;
     });
   }
@@ -63,8 +71,13 @@ export class Tabs {
       const page = selected === null ? this.view.append(child) : this.view.add_page(child, selected);
       page.title = tabTitle(reader.passage.peek());
       const unsubscribe = reader.passage.subscribe(() => {
-        page.title = tabTitle(reader.passage.peek());
-        page.loading = reader.passage.peek()?.state === 'loading';
+        const p = reader.passage.peek();
+        page.title = tabTitle(p);
+        page.loading = p?.state === 'loading';
+        if (p?.state === 'ready') {
+          this.#visited(p.value);
+          this.#changed();
+        }
       });
       this.#tabs.set(page, {
         reader,
@@ -88,6 +101,29 @@ export class Tabs {
   /** Ouvre `ref` dans l'onglet affiché. */
   open(ref: string): void {
     this.current.peek().open(ref);
+  }
+
+  /** Références des onglets (ordre de la barre) et index de l'onglet affiché. */
+  session(): { tabs: string[]; current: number } {
+    const tabs: string[] = [];
+    let current = 0;
+    for (let i = 0; i < this.view.nPages; i += 1) {
+      const page = this.view.get_nth_page(i);
+      const ref = this.#tabs.get(page)?.reader.ref ?? '';
+      if (page === this.view.selectedPage) current = tabs.length;
+      if (ref !== '') tabs.push(ref);
+    }
+    return { tabs, current: Math.min(current, Math.max(0, tabs.length - 1)) };
+  }
+
+  /** Rouvre une session : premier onglet réutilisé, les autres ajoutés, puis l'onglet affiché. */
+  restore(refs: readonly string[], current: number): void {
+    refs.forEach((ref, i) => {
+      if (i === 0) this.open(ref);
+      else this.newTab(ref);
+    });
+    const page = refs.length > 0 ? this.view.get_nth_page(Math.min(current, this.view.nPages - 1)) : null;
+    if (page !== null) this.view.selectedPage = page;
   }
 
   /** Libère tous les onglets (fermeture de la fenêtre : leurs racines gnim ne dépendent pas d'elle). */

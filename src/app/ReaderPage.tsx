@@ -8,6 +8,7 @@ import { chapterTitle, passageItems } from '../shared/chapters.ts';
 import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
+import type { ReadingStore } from '../shared/userdata.ts';
 import { linksPanel } from './LinksPanel.ts';
 import type { Tabs } from './Tabs.ts';
 import { versionsMenu } from './VersionsMenu.ts';
@@ -238,7 +239,12 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
 }
 
 /** Page de lecture : barre d'en-tête (onglet affiché), barre d'onglets, onglets. */
-export function ReaderPage({ tabs, settings, narrow }: { tabs: Tabs; settings: SettingsStore; narrow: Accessor<boolean> }): JSX.Element {
+export function ReaderPage({ tabs, settings, narrow, reading }: { tabs: Tabs; settings: SettingsStore; narrow: Accessor<boolean>; reading: ReadingStore }): JSX.Element {
+  /** passage affiché en signet */
+  const bookmarked = createComputed(() => {
+    const p = tabs.passage();
+    return p?.state === 'ready' && reading.value().bookmarks.some((b) => b.ref === p.value.ref);
+  });
   const versions = versionsMenu(tabs.current, settings, (book) => tabs.reloadBook(book));
   onCleanup(versions.dispose);
   const ready = (): Passage | null => {
@@ -276,6 +282,18 @@ export function ReaderPage({ tabs, settings, narrow }: { tabs: Tabs; settings: S
             subtitle={tabs.passage((p) => (p?.state === 'ready' ? p.value.heRef : ''))}
           />
           <Gtk.Box $type="end" $={(self: Gtk.Box) => self.append(versions.button)} />
+          <Gtk.ToggleButton
+            $type="end"
+            iconName="starred-symbolic"
+            tooltipText={bookmarked((b) => (b ? 'Retirer le signet' : 'Ajouter un signet'))}
+            visible={narrow((n) => !n)}
+            sensitive={tabs.passage((p) => p?.state === 'ready')}
+            active={bookmarked}
+            onToggled={(self: Gtk.ToggleButton) => {
+              const p = ready();
+              if (p !== null && self.active !== reading.isBookmarked(p.ref)) reading.toggleBookmark({ ref: p.ref, heRef: p.heRef });
+            }}
+          />
           <Gtk.SearchEntry
             $type="end"
             name="ref-entry"

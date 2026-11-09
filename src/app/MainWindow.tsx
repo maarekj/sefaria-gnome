@@ -4,6 +4,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import { createState, onCleanup } from 'gnim';
 import type { SettingsStore } from '../shared/settings.ts';
 import type { Store } from '../shared/store.ts';
+import type { ReadingStore } from '../shared/userdata.ts';
 import { Tabs } from './Tabs.ts';
 import { LibraryPane } from './LibraryPane.tsx';
 import { ReaderPage, ReaderView } from './ReaderPage.tsx';
@@ -14,13 +15,23 @@ function asPage(o: JSX.Element): Adw.NavigationPage {
 }
 
 /** Fenêtre et ses onglets (`ready` : onglets créés, pour les actions de l'application). */
-export function MainWindow({ app, store, settings, ready }: { app: Adw.Application; store: Store; settings: SettingsStore; ready: (tabs: Tabs) => void }): JSX.Element {
+export function MainWindow({ app, store, settings, reading, ready }: { app: Adw.Application; store: Store; settings: SettingsStore; reading: ReadingStore; ready: (tabs: Tabs) => void }): JSX.Element {
   let split: Adw.NavigationSplitView | null = null;
   // panneau des liens de chaque onglet en superposition (fenêtre moyenne ou étroite)
   const [linksCollapsed, setLinksCollapsed] = createState(false);
   // fenêtre étroite : barre d'en-tête réduite (titre masqué, seul le bouton de fermeture)
   const [narrow, setNarrow] = createState(false);
-  const tabs = new Tabs(store, (reader, t) => ReaderView({ reader, tabs: t, settings, linksCollapsed }));
+  let created: Tabs | null = null;
+  const tabs = new Tabs(store, (reader, t) => ReaderView({ reader, tabs: t, settings, linksCollapsed }), {
+    // session enregistrée à chaque passage ouvert et changement d'onglet (reprise au lancement)
+    changed: () => {
+      if (created === null) return;
+      const s = created.session();
+      reading.saveTabs(s.tabs, s.current);
+    },
+    visited: (p) => reading.visited({ ref: p.ref, heRef: p.heRef }),
+  });
+  created = tabs;
   tabs.view.vexpand = true;
   tabs.view.hexpand = true;
   ready(tabs);
@@ -71,8 +82,8 @@ export function MainWindow({ app, store, settings, ready }: { app: Adw.Applicati
         maxSidebarWidth={360}
         $={(self: Adw.NavigationSplitView) => {
           split = self;
-          self.sidebar = LibraryPane({ tabs });
-          self.content = asPage(ReaderPage({ tabs, settings, narrow }));
+          self.sidebar = LibraryPane({ tabs, reading });
+          self.content = asPage(ReaderPage({ tabs, settings, narrow, reading }));
           onCleanup(
             tabs.passage.subscribe(() => {
               if (tabs.passage.peek() !== null) self.showContent = true;

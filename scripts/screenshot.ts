@@ -2,7 +2,8 @@
 // une capture, sans rien afficher à l'écran.
 // Usage : node scripts/screenshot.ts [sortie.png] [--ref "Genesis 1"] [--real] [--settings '{"twoColumns":true}']
 //   --ref : passage ouvert au démarrage ; --real : vrai serveur Sefaria (réseau) au lieu du faux ;
-//   --settings : réglages de départ (dossier de configuration temporaire, jamais celui de l'utilisateur).
+//   --settings : réglages de départ (dossiers de configuration et de données temporaires, jamais ceux
+//   de l'utilisateur).
 // Variables : SCREENSHOT_DELAY (s, défaut 4), SCREENSHOT_SIZE (défaut 1100x760),
 // SCREENSHOT_XDOTOOL : commandes xdotool jouées avant la capture, séparées par « ; »
 // (ex. « mousemove 200 150 click 1; sleep 1; type Genesis 2; key Return; sleep 2 » ;
@@ -33,7 +34,7 @@ const quote = (s: string): string => `'${s.replaceAll("'", String.raw`'\''`)}'`;
 const script = [
   // bus D-Bus privé (pas de contact avec une instance déjà ouverte), sans accessibilité ni portails
   `export GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none GDK_DEBUG=no-portals GIO_USE_VFS=local`,
-  `export SEFARIA_GNOME_APP_ID=io.github.maarekj.SefariaGnome.Screenshot XDG_CONFIG_HOME=${quote(config)}`,
+  `export SEFARIA_GNOME_APP_ID=io.github.maarekj.SefariaGnome.Screenshot XDG_CONFIG_HOME=${quote(config)} XDG_DATA_HOME=${quote(path.join(config, 'data'))}`,
   ...(values.real ? [] : [`export SEFARIA_GNOME_URL=http://127.0.0.1:${port}`]),
   ...(values.ref === undefined ? [] : [`export SEFARIA_GNOME_REF=${quote(values.ref)}`]),
   `timeout ${Number(delay) + (process.env['SCREENSHOT_XDOTOOL'] === undefined ? 3 : 120)} dbus-run-session -- gjs -m ${quote(path.join(root, 'dist', 'app', 'main.js'))} > >(grep -v -e '^dbus-daemon' -e 'DRI3') 2>&1 &`,

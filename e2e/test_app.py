@@ -179,3 +179,31 @@ def test_onglets(run_app):
     app.key('ctrl+w')
     app.key('ctrl+w')
     assert app.text_visible('Choisissez un texte')
+
+
+def test_reprise_signets_historique(run_app):
+    fake, app = run_app(ready='Tanakh')
+    app.go_to('Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    app.click('toggle button', 'Ajouter un signet')
+    wait_until(lambda: app.has('toggle button', 'Retirer le signet'), 5, 'signet ajouté')
+    app.key('ctrl+t')
+    app.go_to('Berakhot 2a')
+    app.text_visible('ברכות')
+    # historique de l'onglet : Alt+Gauche revient au passage précédent (onglet vide : rien)
+    app.go_to('Genesis 2')
+    app.text_visible('Genesis 2')
+    app.key('alt+Left')
+    assert app.text_visible('The beginning of tractate')
+    app.key('alt+Right')
+    assert app.text_visible('The heaven and the earth were finished')
+    app.stop()
+    # relance : mêmes onglets, onglet Genesis 2 affiché
+    from conftest import App
+    app2 = App(fake, 'The heaven and the earth were finished')
+    try:
+        assert app2.has(None, 'Genesis 1')
+        app2.point(app2.find('label', 'Signets'))
+        assert app2.has('label', 'Genesis 1')
+    finally:
+        app2.stop()

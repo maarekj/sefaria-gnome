@@ -10,7 +10,7 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
   (importé aussi par le faux serveur).
 - `src/shared/` (GJS) : client libsoup 3 (`client.ts`), état partagé (`store.ts` : bibliothèque,
   caches des requêtes), état d'un onglet (`reader.ts` : passage, segment sélectionné), réglages
-  (`settings.ts`), HTML de Sefaria → balisage Pango (`markup.ts` : notes de bas de page retirées).
+  (`settings.ts`), onglets à rouvrir, historique et signets (`userdata.ts`, `$XDG_DATA_HOME`), HTML de Sefaria → balisage Pango (`markup.ts` : notes de bas de page retirées).
 - `src/app/` : application `Adw.Application` en TSX avec gnim (`gnim/gtk4`) : bibliothèque et tables
   des matières en barre latérale (`LibraryPane.tsx`), onglets de lecture (`Tabs.ts`), barre d'en-tête
   de l'onglet courant et vue d'un onglet (`ReaderPage.tsx`), panneau des liens (`LinksPanel.ts`).

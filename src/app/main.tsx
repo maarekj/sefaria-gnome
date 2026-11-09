@@ -8,6 +8,7 @@ import { createRoot } from 'gnim';
 import { SefariaClient } from '../shared/client.ts';
 import { bookOf } from '../shared/api.ts';
 import { SettingsStore } from '../shared/settings.ts';
+import { ReadingStore } from '../shared/userdata.ts';
 import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
@@ -21,6 +22,7 @@ export const APP_ID = GLib.getenv('SEFARIA_GNOME_APP_ID') ?? 'io.github.maarekj.
 const app = new Adw.Application({ applicationId: APP_ID, flags: Gio.ApplicationFlags.DEFAULT_FLAGS });
 Gtk.Window.set_default_icon_name(APP_ID);
 const settings = new SettingsStore();
+const reading = new ReadingStore();
 const store = new Store(new SefariaClient(), (ref) => {
   const s = settings.value.peek();
   const book = bookOf(ref, s.books);
@@ -95,6 +97,32 @@ closeTab.connect('activate', () => tabs?.closeCurrent());
 app.add_action(closeTab);
 app.set_accels_for_action('app.close-tab', ['<Control>w']);
 
+/** app.go-back / app.go-forward : historique de l'onglet affiché (Alt+Gauche / Alt+Droite) */
+const goBack = new Gio.SimpleAction({ name: 'go-back' });
+goBack.connect('activate', () => tabs?.current.peek().goBack());
+app.add_action(goBack);
+app.set_accels_for_action('app.go-back', ['<Alt>Left']);
+const goForward = new Gio.SimpleAction({ name: 'go-forward' });
+goForward.connect('activate', () => tabs?.current.peek().goForward());
+app.add_action(goForward);
+app.set_accels_for_action('app.go-forward', ['<Alt>Right']);
+/** actions désactivées sans historique : Alt+Gauche revient alors à la page précédente de la barre latérale */
+let historySubs: (() => void)[] = [];
+const followHistory = (): void => {
+  historySubs.forEach((u) => u());
+  const r = tabs?.current.peek();
+  if (r === undefined) {
+    historySubs = [];
+    return;
+  }
+  const sync = (): void => {
+    goBack.enabled = r.canGoBack.peek();
+    goForward.enabled = r.canGoForward.peek();
+  };
+  sync();
+  historySubs = [r.canGoBack.subscribe(sync), r.canGoForward.subscribe(sync)];
+};
+
 const quit = new Gio.SimpleAction({ name: 'quit' });
 quit.connect('activate', () => app.quit());
 app.add_action(quit);
@@ -132,9 +160,14 @@ app.connect('activate', () => {
       app,
       store,
       settings,
+      reading,
       ready: (t) => {
         tabs = t;
-        if (initial !== null) t.open(initial);
+        t.current.subscribe(followHistory);
+        followHistory();
+        // référence imposée (captures, tests), sinon les onglets du dernier lancement
+        if (initial === null) t.restore(reading.value.peek().tabs, reading.value.peek().current);
+        else t.open(initial);
       },
     });
     if (!(win instanceof Gtk.Window)) throw new TypeError('fenêtre attendue');

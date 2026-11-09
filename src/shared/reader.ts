@@ -18,6 +18,13 @@ export class Reader {
   readonly #setSelected: Setter<string | null>;
   /** dernière référence demandée (les réponses plus anciennes sont ignorées) */
   #wanted = '';
+  /** historique de l'onglet : passages précédents et suivants (Alt+Gauche / Alt+Droite) */
+  #back: string[] = [];
+  #forward: string[] = [];
+  readonly canGoBack: Accessor<boolean>;
+  readonly #setCanGoBack: Setter<boolean>;
+  readonly canGoForward: Accessor<boolean>;
+  readonly #setCanGoForward: Setter<boolean>;
 
   /** Référence demandée (champ de saisie d'un onglet en chargement ou en erreur). */
   get wanted(): string {
@@ -29,12 +36,48 @@ export class Reader {
     [this.passage, this.#setPassage] = createState<Load<Passage> | null>(null);
     [this.versions, this.#setVersions] = createState<Load<readonly VersionInfo[]> | null>(null);
     [this.selected, this.#setSelected] = createState<string | null>(null);
+    [this.canGoBack, this.#setCanGoBack] = createState(false);
+    [this.canGoForward, this.#setCanGoForward] = createState(false);
+  }
+
+  /** Référence affichée (ou demandée), vide si aucune. */
+  get ref(): string {
+    const p = this.passage.peek();
+    return p?.state === 'ready' ? p.value.ref : this.#wanted;
+  }
+
+  #syncHistory(): void {
+    this.#setCanGoBack(this.#back.length > 0);
+    this.#setCanGoForward(this.#forward.length > 0);
+  }
+
+  /** Passage précédent de l'onglet. */
+  goBack(): void {
+    const ref = this.#back.pop();
+    if (ref === undefined) return;
+    if (this.ref !== '') this.#forward.push(this.ref);
+    this.#load(ref);
+  }
+
+  goForward(): void {
+    const ref = this.#forward.pop();
+    if (ref === undefined) return;
+    if (this.ref !== '') this.#back.push(this.ref);
+    this.#load(ref);
   }
 
   /** Ouvre la référence `ref` (« Genesis 1 », « Berakhot 2a », un titre de livre…). */
   open(ref: string): void {
     const wanted = ref.trim();
-    if (wanted === '') return;
+    if (wanted === '' || wanted === this.ref) return;
+    // passage quitté : dans l'historique de l'onglet
+    if (this.ref !== '') this.#back.push(this.ref);
+    this.#forward = [];
+    this.#load(wanted);
+  }
+
+  #load(wanted: string): void {
+    this.#syncHistory();
     this.#wanted = wanted;
     this.#setSelected(null);
     this.#setPassage({ state: 'loading' });
@@ -52,7 +95,7 @@ export class Reader {
   /** Recharge le passage affiché (versions modifiées). */
   reload(): void {
     const p = this.passage.peek();
-    if (p?.state === 'ready') this.open(p.value.ref);
+    if (p?.state === 'ready') this.#load(p.value.ref);
   }
 
   select(ref: string | null): void {

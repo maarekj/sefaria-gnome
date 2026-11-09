@@ -20,7 +20,17 @@ const specsOut = path.join(root, 'dist', 'specs');
 fs.rmSync(specsOut, { recursive: true, force: true });
 const specs = only.length > 0 ? only.map((s) => path.resolve(s)) : list(path.join(root, 'specs'), '.spec.ts').map((f) => path.join(root, 'specs', f));
 if (specs.length > 0) {
-  await build({ entryPoints: specs, outdir: specsOut, bundle: true, format: 'esm', target: 'es2022', external: GJS_EXTERNALS, tsconfigRaw: GJS_TSCONFIG, logLevel: 'warning' });
+  // un seul bundle : gnim (enregistrement de types GObject) n'est chargé qu'une fois
+  await build({
+    stdin: { contents: specs.map((s) => `import ${JSON.stringify(s)};`).join('\n'), resolveDir: root, loader: 'ts' },
+    outfile: path.join(specsOut, 'all.spec.js'),
+    bundle: true,
+    format: 'esm',
+    target: 'es2022',
+    external: GJS_EXTERNALS,
+    tsconfigRaw: GJS_TSCONFIG,
+    logLevel: 'warning',
+  });
   const jasmine = spawnSync('xvfb-run', ['-a', 'env', ...ENV, 'jasmine', '--module', '--no-config', specsOut], { stdio: 'inherit' });
   if (jasmine.status !== 0) {
     console.log('ÉCHEC specs jasmine');

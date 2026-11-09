@@ -5,6 +5,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import { onCleanup } from 'gnim';
 import type { Book, Category, LibraryNode, Parasha, Toc, TocNode, TocSection } from '../shared/api.ts';
 import { errorMessage } from '../shared/errors.ts';
+import type { Place, ReadingStore } from '../shared/userdata.ts';
 import type { Tabs } from './Tabs.ts';
 
 /** Noms français des types de section courants (sinon celui de Sefaria). */
@@ -21,15 +22,18 @@ function row(title: string, subtitle: string, more: boolean, activate: () => voi
 }
 
 /** Liste des nœuds d'une catégorie : sous-catégorie ou livre → nouvelle page. */
-function nodeList(nodes: readonly LibraryNode[], activate: (n: LibraryNode) => void): Gtk.Widget {
+function nodeList(nodes: readonly LibraryNode[], activate: (n: LibraryNode) => void, head: readonly Adw.ActionRow[] = []): Gtk.Widget {
   const list = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['navigation-sidebar'] });
+  for (const r of head) list.append(r);
   for (const n of nodes) list.append(n.kind === 'category' ? row(n.name, n.heName, true, () => activate(n)) : row(n.title, n.heTitle, true, () => activate(n)));
   return scrolled(list);
 }
 
-function page(title: string, content: Gtk.Widget, tag?: string): Adw.NavigationPage {
+function page(title: string, content: Gtk.Widget, tag?: string, end?: Gtk.Widget): Adw.NavigationPage {
   const view = new Adw.ToolbarView({ content });
-  view.add_top_bar(new Adw.HeaderBar());
+  const header = new Adw.HeaderBar();
+  if (end !== undefined) header.pack_end(end);
+  view.add_top_bar(header);
   return new Adw.NavigationPage({ title, child: view, ...(tag === undefined ? {} : { tag }) });
 }
 
@@ -136,7 +140,30 @@ function bookPage(book: Book, tabs: Tabs, push: (p: Adw.NavigationPage) => void)
   return p;
 }
 
-export function LibraryPane({ tabs }: { tabs: Tabs }): Adw.NavigationPage {
+/** Page « Signets » ou « Historique » : passages mémorisés, tenue à jour. */
+function placesPage(title: string, empty: string, places: () => readonly Place[], reading: ReadingStore, tabs: Tabs, clear?: () => void): Adw.NavigationPage {
+  const stack = new Gtk.Stack();
+  const list = new Gtk.ListBox({ selectionMode: Gtk.SelectionMode.NONE, cssClasses: ['navigation-sidebar'] });
+  stack.add_named(scrolled(list), 'list');
+  stack.add_named(new Adw.StatusPage({ iconName: 'starred-symbolic', title: empty }), 'empty');
+  const fillList = (): void => {
+    for (let c = list.get_first_child(); c !== null; c = list.get_first_child()) list.remove(c);
+    for (const p of places()) list.append(row(p.ref, p.heRef, false, () => tabs.open(p.ref)));
+    stack.visibleChildName = places().length === 0 ? 'empty' : 'list';
+  };
+  fillList();
+  const unsubscribe = reading.value.subscribe(fillList);
+  let button: Gtk.Button | undefined;
+  if (clear !== undefined) {
+    button = new Gtk.Button({ iconName: 'edit-clear-all-symbolic', tooltipText: "Effacer l'historique" });
+    button.connect('clicked', clear);
+  }
+  const pg = page(title, stack, undefined, button);
+  pg.connect('destroy', unsubscribe);
+  return pg;
+}
+
+export function LibraryPane({ tabs, reading }: { tabs: Tabs; reading: ReadingStore }): Adw.NavigationPage {
   const nav = new Adw.NavigationView();
   const push = (p: Adw.NavigationPage): void => nav.push(p);
   const activate = (n: LibraryNode): void => {
@@ -154,7 +181,13 @@ export function LibraryPane({ tabs }: { tabs: Tabs }): Adw.NavigationPage {
             if (l.state !== 'ready') return;
             const old = self.get_child_by_name('ready');
             if (old !== null) self.remove(old);
-            self.add_named(nodeList(l.value, activate), 'ready');
+            self.add_named(
+              nodeList(l.value, activate, [
+                row('Signets', '', true, () => nav.push(placesPage('Signets', 'Aucun signet', () => reading.value.peek().bookmarks, reading, tabs))),
+                row('Historique', '', true, () => nav.push(placesPage('Historique', 'Historique vide', () => reading.value.peek().history, reading, tabs, () => reading.clearHistory()))),
+              ]),
+              'ready',
+            );
             self.visibleChildName = 'ready';
           }),
         );
