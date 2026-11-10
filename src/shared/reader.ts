@@ -40,6 +40,11 @@ export class Reader {
   readonly ai: Accessor<AiState>;
   readonly #setAi: Setter<AiState>;
   #aiCancel: Gio.Cancellable | null = null;
+  /** volet « Page imprimée » ouvert, et agrandi à tout l'onglet */
+  readonly pageOn: Accessor<boolean>;
+  readonly #setPageOn: Setter<boolean>;
+  readonly pageMax: Accessor<boolean>;
+  readonly #setPageMax: Setter<boolean>;
   /** segment à sélectionner et à faire défiler jusqu'à lui au prochain affichage (résultat de recherche) */
   #pendingSelect: string | null = null;
   #reveal = false;
@@ -57,6 +62,8 @@ export class Reader {
     [this.canGoBack, this.#setCanGoBack] = createState(false);
     [this.canGoForward, this.#setCanGoForward] = createState(false);
     [this.aiOn, this.#setAiOn] = createState(false);
+    [this.pageOn, this.#setPageOn] = createState(false);
+    [this.pageMax, this.#setPageMax] = createState(false);
     [this.ai, this.#setAi] = createState<AiState>({ state: 'off' });
     // nouveau passage affiché : traduit si la traduction par IA est active dans l'onglet
     this.passage.subscribe(() => {
@@ -69,6 +76,16 @@ export class Reader {
       }
       if (this.aiOn.peek()) this.translateSection();
     });
+  }
+
+  /** Ouvre / ferme le volet de la page imprimée (fermé : plus agrandi). */
+  setPage(on: boolean): void {
+    this.#setPageOn(on);
+    if (!on) this.#setPageMax(false);
+  }
+
+  setPageMax(on: boolean): void {
+    this.#setPageMax(on);
   }
 
   /** Active / désactive la traduction par IA de l'onglet. */

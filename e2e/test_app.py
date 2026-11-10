@@ -375,23 +375,35 @@ def test_page_imprimee(run_app):
     fake, app = run_app(ref='Genesis 1')
     app.text_visible('When God began to create heaven and earth')
     # pas de bouton hors Talmud
-    assert not app.has('button', 'Page imprimée')
+    assert not app.has('toggle button', 'Page imprimée')
     app.go_to('Berakhot 2a')
     app.text_visible('The beginning of tractate')
-    app.click('button', 'Page imprimée')
-    # fenêtre de la page : Vilna nettoyée en tête (image de Vilna traitée à l'affichage)
+    app.click('toggle button', 'Page imprimée')
+    # volet dans l'onglet, à côté du texte : Vilna nettoyée en tête
     wait_until(lambda: any(r == '/__image/romm.png' for r in fake.requests()), 10, 'page de Vilna chargée')
     assert any(r == '/api/manuscripts/Berakhot%202a' for r in fake.requests())
     assert app.text_visible('Vilna (nettoyée)')
+    assert app.text_visible('The beginning of tractate')
+    # amud suivant depuis le volet : l'onglet passe aussi à 2b
     app.click('button', 'Amud suivant')
-    wait_until(lambda: any(r == '/api/manuscripts/Berakhot%202b' for r in fake.requests()), 10, 'amud suivant')
-    assert app.text_visible('Berakhot 2b')
+    wait_until(lambda: any(r == '/api/manuscripts/Berakhot%202b' for r in fake.requests()), 10, 'page 2b')
+    wait_until(lambda: any(r.startswith('/api/v3/texts/Berakhot%202b') for r in fake.requests()), 10, 'onglet sur 2b')
+    # agrandir : page sur tout l'onglet (texte masqué), puis réduire
+    app.go_to('Berakhot 2a')
+    app.text_visible('The beginning of tractate')
+    app.click('toggle button', 'Agrandir la page')
+    app.text_gone('The beginning of tractate')
+    app.click('toggle button', 'Réduire la page')
+    assert app.text_visible('The beginning of tractate')
+    # fermer le volet
+    app.click('button', 'Fermer la page imprimée')
+    wait_until(lambda: not app.has('button', 'Amud suivant'), 5, 'volet fermé')
 
 
 def test_page_imprimee_zoom_molette_et_glisser(run_app):
     fake, app = run_app(ref='Berakhot 2a')
     app.text_visible('The beginning of tractate')
-    app.click('button', 'Page imprimée')
+    app.click('toggle button', 'Page imprimée')
     wait_until(lambda: any(r == '/__image/romm.png' for r in fake.requests()), 10, 'page chargée')
     image = wait_until(lambda: app.root.findChild(lambda n: n.roleName == 'image' and n.showing and 'Berakhot 2a' in ((n.name or '') + (n.description or '')), retry=False, requireResult=False), 10, 'image de la page')
     width = image.get_extents(Atspi.CoordType.WINDOW).width

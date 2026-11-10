@@ -1,5 +1,5 @@
 // Zoom de la page imprimée : bornes et point fixe sous le pointeur.
-import { anchoredScroll, clampZoom } from '../src/app/PageViewer.ts';
+import { anchoredScroll, clampZoom } from '../src/app/PageView.ts';
 
 describe('zoom de la page imprimée', () => {
   it('borné entre 1 et 6', () => {

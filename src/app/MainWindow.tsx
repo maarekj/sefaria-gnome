@@ -26,7 +26,7 @@ export function MainWindow({ app, store, settings, reading, ready }: { app: Adw.
   // fenêtre étroite : barre d'en-tête réduite (titre masqué, seul le bouton de fermeture)
   const [narrow, setNarrow] = createState(false);
   let created: Tabs | null = null;
-  const tabs = new Tabs(store, (reader, t) => ReaderView({ reader, tabs: t, settings, linksCollapsed }), {
+  const tabs = new Tabs(store, (reader, t) => ReaderView({ reader, tabs: t, settings, linksCollapsed, narrow }), {
     // session enregistrée à chaque passage ouvert et changement d'onglet (reprise au lancement)
     changed: () => {
       if (created === null) return;

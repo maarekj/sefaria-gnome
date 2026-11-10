@@ -1,6 +1,7 @@
-// Fenêtre « Page imprimée » d'un amud du Talmud : image de l'édition choisie (Vilna par défaut,
-// Venise, manuscrits), zoom (boutons, molette centrée sur le pointeur), déplacement en glissant,
-// amud précédent / suivant, ouverture dans le navigateur.
+// Volet « Page imprimée » d'un onglet : page de l'amud affiché dans l'édition choisie (Vilna nettoyée
+// par défaut, Vilna, Venise, manuscrits), zoom (boutons, molette centrée sur le pointeur),
+// déplacement en glissant, amud précédent / suivant (qui déplacent l'onglet), agrandissement à tout
+// l'onglet, ouverture dans le navigateur.
 import Adw from 'gi://Adw?version=1';
 import Gdk from 'gi://Gdk?version=4.0';
 import Gtk from 'gi://Gtk?version=4.0';
@@ -33,25 +34,46 @@ function scrollWhenResized(adj: Gtk.Adjustment, value: number): void {
   });
 }
 
-export function openPageViewer(parent: Gtk.Window | null, client: SefariaClient, amud: string): void {
-  const win = new Adw.Window({ defaultWidth: 760, defaultHeight: 900, ...(parent === null ? {} : { transientFor: parent }) });
+/** Volet d'un onglet. */
+export interface PageView {
+  readonly widget: Gtk.Widget;
+  /** Amud à afficher (null : passage sans page imprimée). */
+  setAmud: (amud: string | null) => void;
+  dispose: () => void;
+}
+
+/**
+ * `navigate(ref)` : amud précédent / suivant demandé (ouvert dans l'onglet, qui rappelle `setAmud`) ;
+ * `maximized` / `setMaximized` : page sur tout l'onglet ; `close` : volet fermé.
+ */
+export function pageView(
+  client: SefariaClient,
+  options: { navigate: (ref: string) => void; maximized: () => boolean; setMaximized: (on: boolean) => void; close: () => void },
+): PageView {
   const title = new Adw.WindowTitle({ title: 'Page imprimée' });
-  const header = new Adw.HeaderBar({ titleWidget: title });
+  const header = new Adw.HeaderBar({ titleWidget: title, showStartTitleButtons: false, showEndTitleButtons: false });
   const prev = new Gtk.Button({ iconName: 'go-previous-symbolic', tooltipText: 'Amud précédent' });
   const next = new Gtk.Button({ iconName: 'go-next-symbolic', tooltipText: 'Amud suivant' });
   header.pack_start(prev);
   header.pack_start(next);
+  const close = new Gtk.Button({ iconName: 'window-close-symbolic', tooltipText: 'Fermer la page imprimée' });
+  header.pack_end(close);
+  const maximize = new Gtk.ToggleButton({ iconName: 'view-fullscreen-symbolic', tooltipText: 'Agrandir la page', active: options.maximized() });
+  header.pack_end(maximize);
+  // options (édition, zoom, navigateur) dans un menu : le volet peut être étroit
   const names = Gtk.StringList.new([]);
   const edition = new Gtk.DropDown({ model: names, tooltipText: 'Édition' });
-  header.pack_end(edition);
   const browser = new Gtk.Button({ iconName: 'web-browser-symbolic', tooltipText: 'Ouvrir l’image dans le navigateur' });
-  header.pack_end(browser);
   const zoomOut = new Gtk.Button({ iconName: 'zoom-out-symbolic', tooltipText: 'Réduire' });
   const zoomIn = new Gtk.Button({ iconName: 'zoom-in-symbolic', tooltipText: 'Agrandir' });
   const zoomBox = new Gtk.Box({ cssClasses: ['linked'] });
   zoomBox.append(zoomOut);
   zoomBox.append(zoomIn);
-  header.pack_end(zoomBox);
+  const bar = new Gtk.Box({ spacing: 6, marginStart: 6, marginEnd: 6, marginBottom: 4 });
+  bar.append(edition);
+  bar.append(new Gtk.Box({ hexpand: true }));
+  bar.append(zoomBox);
+  bar.append(browser);
 
   const pagesBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12, halign: Gtk.Align.CENTER, marginTop: 8, marginBottom: 8 });
   const scroller = new Gtk.ScrolledWindow({ child: pagesBox, hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true });
@@ -60,17 +82,16 @@ export function openPageViewer(parent: Gtk.Window | null, client: SefariaClient,
   const error = new Adw.StatusPage({ iconName: 'image-missing-symbolic', title: 'Page indisponible' });
   stack.add_named(error, 'error');
   stack.add_named(scroller, 'pages');
-  const view = new Adw.ToolbarView({ content: stack });
+  const view = new Adw.ToolbarView({ content: stack, widthRequest: 280, cssClasses: ['page-pane'] });
   view.add_top_bar(header);
-  win.content = view;
+  view.add_top_bar(bar);
   // thème : encre noire (clair) ou blanche (sombre) des pages nettoyées
   const style = Adw.StyleManager.get_default();
   const themeId = style.connect('notify::dark', () => {
     for (const c of cleanPages) c.update(c.texture, style.dark);
   });
-  win.connect('destroy', () => style.disconnect(themeId));
 
-  let current = amud;
+  let current: string | null = null;
   let editions: Edition[] = [];
   let zoom = 1;
   /** dernière position du pointeur dans la zone visible (centre du zoom à la molette) */
@@ -171,19 +192,22 @@ export function openPageViewer(parent: Gtk.Window | null, client: SefariaClient,
   const load = (): void => {
     generation += 1;
     const gen = generation;
-    title.title = 'Page imprimée';
-    title.subtitle = current;
-    win.title = `Page imprimée · ${current}`;
-    prev.sensitive = siblingAmud(current, -1) !== null;
-    next.sensitive = siblingAmud(current, 1) !== null;
+    const amud = current;
+    title.subtitle = amud ?? '';
+    prev.sensitive = amud !== null && siblingAmud(amud, -1) !== null;
+    next.sensitive = amud !== null && siblingAmud(amud, 1) !== null;
+    if (amud === null) {
+      error.description = 'Ce passage n’a pas de page imprimée (seulement le Talmud de Babylone, par amud).';
+      stack.visibleChildName = 'error';
+      return;
+    }
     stack.visibleChildName = 'loading';
     void (async () => {
       try {
-        // Torah-Box en tête (meilleure qualité) ; Sefaria injoignable : Torah-Box seule
-        const found = await client.manuscripts(current);
+        const found = await client.manuscripts(amud);
         if (gen !== generation) return;
         if (found.length === 0) {
-          error.description = `Aucune page imprimée pour ${current}.`;
+          error.description = `Aucune page imprimée pour ${amud}.`;
           stack.visibleChildName = 'error';
           return;
         }
@@ -207,19 +231,17 @@ export function openPageViewer(parent: Gtk.Window | null, client: SefariaClient,
   edition.connect('notify::selected', () => {
     if (!filling) showEdition();
   });
-  prev.connect('clicked', () => {
-    const s = siblingAmud(current, -1);
-    if (s !== null) {
-      current = s;
-      load();
-    }
-  });
-  next.connect('clicked', () => {
-    const s = siblingAmud(current, 1);
-    if (s !== null) {
-      current = s;
-      load();
-    }
+  // amud voisin : ouvert dans l'onglet (texte et page avancent ensemble)
+  const go = (direction: 1 | -1): void => {
+    const s = current === null ? null : siblingAmud(current, direction);
+    if (s !== null) options.navigate(s);
+  };
+  prev.connect('clicked', () => go(-1));
+  next.connect('clicked', () => go(1));
+  close.connect('clicked', () => options.close());
+  maximize.connect('toggled', () => {
+    if (maximize.active !== options.maximized()) options.setMaximized(maximize.active);
+    maximize.tooltipText = maximize.active ? 'Réduire la page' : 'Agrandir la page';
   });
   zoomIn.connect('clicked', () => zoomTo(zoom * BUTTON_STEP, null));
   zoomOut.connect('clicked', () => zoomTo(zoom / BUTTON_STEP, null));
@@ -256,18 +278,19 @@ export function openPageViewer(parent: Gtk.Window | null, client: SefariaClient,
   scroller.add_controller(drag);
   browser.connect('clicked', () => {
     const page = editions[edition.selected]?.pages[0];
-    if (page !== undefined) new Gtk.UriLauncher({ uri: page.url }).launch(win, null, null);
+    const root = view.get_root();
+    if (page !== undefined) new Gtk.UriLauncher({ uri: page.url }).launch(root instanceof Gtk.Window ? root : null, null, null);
   });
   // largeur de la fenêtre modifiée : images recalculées
   scroller.hadjustment.connect('notify::page-size', applyZoom);
   scroller.vadjustment.connect('notify::page-size', applyZoom);
-  const keys = new Gtk.EventControllerKey();
-  keys.connect('key-pressed', (_k: Gtk.EventControllerKey, keyval: number) => {
-    if (keyval !== Gdk.KEY_Escape) return false;
-    win.close();
-    return true;
-  });
-  win.add_controller(keys);
-  load();
-  win.present();
+  return {
+    widget: view,
+    setAmud: (amud: string | null) => {
+      if (amud === current && stack.visibleChildName !== 'error') return;
+      current = amud;
+      load();
+    },
+    dispose: () => style.disconnect(themeId),
+  };
 }

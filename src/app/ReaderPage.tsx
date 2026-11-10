@@ -11,7 +11,7 @@ import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
 import { linksPanel } from './LinksPanel.ts';
-import { openPageViewer } from './PageViewer.ts';
+import { type PageView, pageView } from './PageView.ts';
 import { attachCompletion } from './RefCompletion.ts';
 import type { Tabs } from './Tabs.ts';
 import { versionsMenu } from './VersionsMenu.ts';
@@ -129,7 +129,19 @@ function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) =>
 }
 
 /** Contenu d'un onglet : passage et panneau des liens de ses segments. */
-export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader: Reader; tabs: Tabs; settings: SettingsStore; linksCollapsed: Accessor<boolean> }): Gtk.Widget {
+export function ReaderView({
+  reader,
+  tabs,
+  settings,
+  linksCollapsed,
+  narrow,
+}: {
+  reader: Reader;
+  tabs: Tabs;
+  settings: SettingsStore;
+  linksCollapsed: Accessor<boolean>;
+  narrow: Accessor<boolean>;
+}): Gtk.Widget {
   /** largeur disponible pour le texte (repli en mode empilé si trop étroit) */
   const [width, setWidth] = createState(10_000);
   const columns = createComputed(() => settings.value().twoColumns && settings.value().display === 'both' && width() >= TWO_COLUMNS_MIN_WIDTH);
@@ -263,7 +275,50 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
     </Adw.OverlaySplitView>
   );
   if (!(view instanceof Gtk.Widget)) throw new TypeError('widget attendu');
-  return view;
+  return withPagePane(view, reader, tabs, narrow);
+}
+
+/**
+ * Volet « Page imprimée » à gauche du texte (redimensionnable), créé à la première ouverture ; agrandi
+ * (ou fenêtre étroite) : la page occupe tout l'onglet.
+ */
+function withPagePane(text: Gtk.Widget, reader: Reader, tabs: Tabs, narrow: Accessor<boolean>): Gtk.Widget {
+  const paned = new Gtk.Paned({ orientation: Gtk.Orientation.HORIZONTAL, endChild: text, resizeStartChild: true, resizeEndChild: true, shrinkStartChild: false, shrinkEndChild: false, wideHandle: true });
+  let pane: PageView | null = null;
+  /** amud du passage affiché, ou demandé (la page suit dès la navigation) ; null sinon */
+  const amud = (): string | null => {
+    const p = reader.passage.peek();
+    if (p?.state === 'ready') return isAmud(p.value.sectionRef) ? p.value.sectionRef : null;
+    const wanted = reader.wanted.replace(/:[^:]*$/u, '');
+    return isAmud(wanted) ? wanted : null;
+  };
+  const sync = (): void => {
+    const on = reader.pageOn.peek();
+    if (on && pane === null) {
+      pane = pageView(tabs.store.client, {
+        navigate: (ref) => reader.open(ref),
+        maximized: () => reader.pageMax.peek(),
+        setMaximized: (m) => reader.setPageMax(m),
+        close: () => reader.setPage(false),
+      });
+      paned.startChild = pane.widget;
+      // moitié de la largeur à l'ouverture
+      paned.position = Math.round(paned.get_width() * 0.45);
+    }
+    if (pane !== null) {
+      pane.widget.visible = on;
+      if (on) pane.setAmud(amud());
+    }
+    const full = on && (reader.pageMax.peek() || narrow.peek());
+    text.visible = !full;
+  };
+  sync();
+  const subs = [reader.pageOn.subscribe(sync), reader.pageMax.subscribe(sync), reader.passage.subscribe(sync), narrow.subscribe(sync)];
+  paned.connect('destroy', () => {
+    subs.forEach((u) => u());
+    pane?.dispose();
+  });
+  return paned;
 }
 
 /** Page de lecture : barre d'en-tête (onglet affiché), barre d'onglets, onglets. */
@@ -274,6 +329,8 @@ export function ReaderPage({ tabs, settings, narrow, reading }: { tabs: Tabs; se
     return p?.state === 'ready' && reading.value().bookmarks.some((b) => b.ref === p.value.ref);
   });
   const versions = versionsMenu(tabs.current, settings, (book) => tabs.reloadBook(book));
+  /** volet de la page imprimée ouvert dans l'onglet affiché */
+  const pageOn = createComputed(() => tabs.current().pageOn());
   onCleanup(versions.dispose);
   const ready = (): Passage | null => {
     const p = tabs.passage.peek();
@@ -311,15 +368,15 @@ export function ReaderPage({ tabs, settings, narrow, reading }: { tabs: Tabs; se
             subtitle={tabs.passage((p) => (p?.state === 'ready' ? p.value.heRef : ''))}
           />
           <Gtk.Box $type="end" $={(self: Gtk.Box) => self.append(versions.button)} />
-          <Gtk.Button
+          <Gtk.ToggleButton
             $type="end"
             iconName="image-x-generic-symbolic"
             tooltipText="Page imprimée"
             visible={tabs.passage((p) => p?.state === 'ready' && isAmud(p.value.sectionRef))}
-            onClicked={(self: Gtk.Button) => {
-              const p = ready();
-              const root = self.get_root();
-              if (p !== null) openPageViewer(root instanceof Gtk.Window ? root : null, tabs.store.client, p.sectionRef);
+            active={pageOn}
+            onToggled={(self: Gtk.ToggleButton) => {
+              const r = tabs.current.peek();
+              if (self.active !== r.pageOn.peek()) r.setPage(self.active);
             }}
           />
           <Gtk.ToggleButton
