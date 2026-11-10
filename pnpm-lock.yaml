@@ -173,6 +173,7 @@ overrides:
   '@girs/soup-3.0': 5.5.0
   '@girs/pango-1.0': 5.5.0
   '@girs/pangocairo-1.0': 5.5.0
+  '@girs/graphene-1.0': 5.5.0
 
 importers:
 
@@ -198,6 +199,9 @@ importers:
         specifier: 5.5.0
         version: 5.5.0
       '@girs/gobject-2.0':
+        specifier: 5.5.0
+        version: 5.5.0
+      '@girs/graphene-1.0':
         specifier: 5.5.0
         version: 5.5.0
       '@girs/gtk-4.0':
@@ -419,8 +423,8 @@ packages:
   '@girs/gobject-2.0@5.5.0':
     resolution: {integrity: sha512-UYLbIaSOMyze9xRa7AS922t3o+5lTu0RRJ7mhLzAjBQ8iD48ttIVJIHkdPe7vq6h17pUsesMXHRfszn5eSZS/Q==}
 
-  '@girs/graphene-1.0@5.6.0':
-    resolution: {integrity: sha512-BsHH814prsSYBSN9GEaObb3ZcfznG51Y6HIqpWpu9h5kjEYI7x3WJlX1U1zTwLGxqNGf71MYeDm8M3yXcJ8W/w==}
+  '@girs/graphene-1.0@5.5.0':
+    resolution: {integrity: sha512-SYeJPLV/+8ez8aj55kVaKNqlPtWaA6HNNYFB7mtXEMWezfC0uE7vKfJbTBnXf1C2kkOz2O6LN6DRx3J4OaHGNg==}
 
   '@girs/gsk-4.0@5.6.0':
     resolution: {integrity: sha512-F8CSqjWLm0awgpYlm5cb/7u8o1pFIv3Z1TmnZ28eBDGTskE/gzyzhJPEwK15AxxwkJVJwcOW85Fg0A1zJg8nVw==}
@@ -846,7 +850,7 @@ snapshots:
       '@girs/glib-2.0': 5.5.0
       '@girs/gmodule-2.0': 5.6.0
       '@girs/gobject-2.0': 5.5.0
-      '@girs/graphene-1.0': 5.6.0
+      '@girs/graphene-1.0': 5.5.0
       '@girs/gsk-4.0': 5.6.0
       '@girs/gtk-4.0': 5.5.0
       '@girs/harfbuzz-0.0': 5.6.0
@@ -916,7 +920,7 @@ snapshots:
       '@girs/gjs': 5.5.0
       '@girs/glib-2.0': 5.5.0
 
-  '@girs/graphene-1.0@5.6.0':
+  '@girs/graphene-1.0@5.5.0':
     dependencies:
       '@girs/gjs': 5.5.0
       '@girs/glib-2.0': 5.5.0
@@ -933,7 +937,7 @@ snapshots:
       '@girs/glib-2.0': 5.5.0
       '@girs/gmodule-2.0': 5.6.0
       '@girs/gobject-2.0': 5.5.0
-      '@girs/graphene-1.0': 5.6.0
+      '@girs/graphene-1.0': 5.5.0
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0
       '@girs/pangocairo-1.0': 5.5.0
@@ -949,7 +953,7 @@ snapshots:
       '@girs/glib-2.0': 5.5.0
       '@girs/gmodule-2.0': 5.6.0
       '@girs/gobject-2.0': 5.5.0
-      '@girs/graphene-1.0': 5.6.0
+      '@girs/graphene-1.0': 5.5.0
       '@girs/gsk-4.0': 5.6.0
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0

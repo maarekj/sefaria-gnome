@@ -1,5 +1,7 @@
 // Fenêtre principale : bibliothèque (barre latérale) et lecture.
 import Adw from 'gi://Adw?version=1';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import { createState, onCleanup } from 'gnim';
 import type { SettingsStore } from '../shared/settings.ts';
@@ -16,7 +18,9 @@ function asPage(o: JSX.Element): Adw.NavigationPage {
 
 /** Fenêtre et ses onglets (`ready` : onglets créés, pour les actions de l'application). */
 export function MainWindow({ app, store, settings, reading, ready }: { app: Adw.Application; store: Store; settings: SettingsStore; reading: ReadingStore; ready: (tabs: Tabs) => void }): JSX.Element {
-  let split: Adw.NavigationSplitView | null = null;
+  let split: Adw.OverlaySplitView | null = null;
+  let win: Adw.ApplicationWindow | null = null;
+  let toggleAction: Gio.SimpleAction | null = null;
   // panneau des liens de chaque onglet en superposition (fenêtre moyenne ou étroite)
   const [linksCollapsed, setLinksCollapsed] = createState(false);
   // fenêtre étroite : barre d'en-tête réduite (titre masqué, seul le bouton de fermeture)
@@ -44,6 +48,8 @@ export function MainWindow({ app, store, settings, reading, ready }: { app: Adw.
       widthRequest={360}
       heightRequest={400}
       $={(self: Adw.ApplicationWindow) => {
+        win = self;
+        if (toggleAction !== null) self.add_action(toggleAction);
         // fenêtre moyenne : panneau des liens en superposition (le texte garde sa largeur) ;
         // ajouté avant le point étroit : libadwaita n'applique que le dernier point satisfait
         // (signaux : les onglets créés plus tard suivent aussi)
@@ -77,16 +83,34 @@ export function MainWindow({ app, store, settings, reading, ready }: { app: Adw.
         self.add_breakpoint(bp);
       }}
     >
-      <Adw.NavigationSplitView
+      <Adw.OverlaySplitView
         minSidebarWidth={260}
         maxSidebarWidth={360}
-        $={(self: Adw.NavigationSplitView) => {
+        showSidebar={settings.value.peek().sidebar}
+        $={(self: Adw.OverlaySplitView) => {
           split = self;
           self.sidebar = LibraryPane({ tabs, reading, settings });
           self.content = asPage(ReaderPage({ tabs, settings, narrow, reading }));
+          // win.toggle-sidebar (F9, bouton du lecteur) : état suivi dans les deux sens
+          const toggle = Gio.SimpleAction.new_stateful('toggle-sidebar', null, GLib.Variant.new_boolean(self.showSidebar));
+          toggle.connect('change-state', (_a: Gio.SimpleAction, value: GLib.Variant | null) => {
+            self.showSidebar = value?.get_boolean() ?? !self.showSidebar;
+          });
+          self.connect('notify::show-sidebar', () => {
+            toggle.set_state(GLib.Variant.new_boolean(self.showSidebar));
+            // choix mémorisé seulement en mode côte à côte (en fenêtre étroite, superposition passagère)
+            if (!self.collapsed && self.showSidebar !== settings.value.peek().sidebar) settings.update({ sidebar: self.showSidebar });
+          });
+          // fenêtre étroite : bibliothèque superposée, fermée par défaut ; élargie : choix mémorisé
+          self.connect('notify::collapsed', () => {
+            self.showSidebar = !self.collapsed && settings.value.peek().sidebar;
+          });
+          toggleAction = toggle;
+          win?.add_action(toggle);
           onCleanup(
             tabs.passage.subscribe(() => {
-              if (tabs.passage.peek() !== null) self.showContent = true;
+              // passage ouvert depuis la bibliothèque superposée : retour au texte
+              if (tabs.passage.peek() !== null && self.collapsed) self.showSidebar = false;
             }),
           );
         }}

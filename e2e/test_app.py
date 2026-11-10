@@ -1,6 +1,8 @@
 """Parcours principaux : bibliothèque, lecture, navigation entre sections, référence saisie."""
 
-from conftest import ROOT, wait_until
+import time
+
+from conftest import ROOT, Atspi, wait_until, xdotool
 
 
 def test_bibliotheque_puis_lecture(run_app):
@@ -353,3 +355,57 @@ def test_traduction_talmud_gras(run_app):
     assert '<b>MISHNA:</b> <b>From when,</b> that is, from what time' in prompt and 'EN ENTIER' in prompt
     # la réponse en gras est affichée comme telle (balisage, pas de « <b> » littéral)
     assert not app.has('label', contains='<b>')
+
+
+def test_barre_laterale_masquable(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    toggle = app.find('toggle button', 'Afficher la bibliothèque (F9)')
+    assert app._checked(toggle)
+    app.key('F9')
+    wait_until(lambda: not app.has('label', 'Tanakh'), 5, 'bibliothèque masquée')
+    assert not app._checked(toggle)
+    settings = fake.dir / 'config' / 'sefaria-gnome' / 'settings.json'
+    wait_until(lambda: '"sidebar": false' in settings.read_text(), 5, 'choix enregistré')
+    app.point(toggle)
+    assert app.text_visible('Tanakh')
+
+
+def test_page_imprimee(run_app):
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    # pas de bouton hors Talmud
+    assert not app.has('button', 'Page imprimée')
+    app.go_to('Berakhot 2a')
+    app.text_visible('The beginning of tractate')
+    app.click('button', 'Page imprimée')
+    # fenêtre de la page : Vilna nettoyée en tête (image de Vilna traitée à l'affichage)
+    wait_until(lambda: any(r == '/__image/romm.png' for r in fake.requests()), 10, 'page de Vilna chargée')
+    assert any(r == '/api/manuscripts/Berakhot%202a' for r in fake.requests())
+    assert app.text_visible('Vilna (nettoyée)')
+    app.click('button', 'Amud suivant')
+    wait_until(lambda: any(r == '/api/manuscripts/Berakhot%202b' for r in fake.requests()), 10, 'amud suivant')
+    assert app.text_visible('Berakhot 2b')
+
+
+def test_page_imprimee_zoom_molette_et_glisser(run_app):
+    fake, app = run_app(ref='Berakhot 2a')
+    app.text_visible('The beginning of tractate')
+    app.click('button', 'Page imprimée')
+    wait_until(lambda: any(r == '/__image/romm.png' for r in fake.requests()), 10, 'page chargée')
+    image = wait_until(lambda: app.root.findChild(lambda n: n.roleName == 'image' and n.showing and 'Berakhot 2a' in ((n.name or '') + (n.description or '')), retry=False, requireResult=False), 10, 'image de la page')
+    width = image.get_extents(Atspi.CoordType.WINDOW).width
+    # molette vers le haut sur l'image : zoom
+    app.point(image)
+    for _ in range(4):
+        xdotool('click', '4')
+        time.sleep(0.1)
+    wait_until(lambda: image.get_extents(Atspi.CoordType.WINDOW).width > width * 1.5, 5, 'zoom à la molette')
+    # glisser : l'image se déplace
+    before = image.get_extents(Atspi.CoordType.WINDOW)
+    xdotool('mousedown', '1')
+    for _ in range(10):
+        xdotool('mousemove_relative', '--', '-15', '-15')
+        time.sleep(0.03)
+    xdotool('mouseup', '1')
+    wait_until(lambda: image.get_extents(Atspi.CoordType.WINDOW).y < before.y - 50, 5, 'image déplacée')

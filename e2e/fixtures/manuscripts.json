@@ -1,0 +1,110 @@
+{
+  "Berakhot 2a": [
+    {
+      "manuscript_slug": "bomberg-(venice)-pressing-(1523-ce)",
+      "page_id": "Berakhot 2a",
+      "image_url": "{base}/__image/bomberg.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/bomberg/masekhet_22_0008_thumbnail.jpg",
+      "anchorRef": "Berakhot 2a",
+      "manuscript": {
+        "slug": "bomberg-(venice)-pressing-(1523-ce)",
+        "title": "Bomberg (Venice) Pressing (1523 CE)",
+        "he_title": "דפוס בומברג (ונציה) (1523)",
+        "source": "https://rosetta.nli.org.il"
+      }
+    },
+    {
+      "manuscript_slug": "bomberg-(venice)-pressing-(1523-ce)",
+      "page_id": "Berakhot 2b",
+      "image_url": "{base}/__image/bomberg.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/bomberg/masekhet_22_0009_thumbnail.jpg",
+      "anchorRef": "Berakhot 2",
+      "manuscript": {
+        "slug": "bomberg-(venice)-pressing-(1523-ce)",
+        "title": "Bomberg (Venice) Pressing (1523 CE)",
+        "he_title": "דפוס בומברג (ונציה) (1523)",
+        "source": "https://rosetta.nli.org.il"
+      }
+    },
+    {
+      "manuscript_slug": "munich-manuscript-95-(1342-ce)",
+      "page_id": "Cod. hebr. 95 pg. 0278",
+      "image_url": "{base}/__image/munich.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/munich-manuscript/munich-manuscript-95Cod.hebr.95pg.0278_thumbnail.jpg",
+      "anchorRef": "Berakhot 2a-4a",
+      "manuscript": {
+        "slug": "munich-manuscript-95-(1342-ce)",
+        "title": "Munich Manuscript 95 (1342 CE)",
+        "he_title": "כתב יד מינכן 95 (1342)",
+        "source": "https://www.digitale-sammlungen.de"
+      }
+    },
+    {
+      "manuscript_slug": "romm-vilna-pressing-(1880-86-ce)",
+      "page_id": "Berakhot 2a",
+      "image_url": "{base}/__image/romm.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/vilna-romm/Berakhot_2a_thumbnail.jpg",
+      "anchorRef": "Berakhot 2a",
+      "manuscript": {
+        "slug": "romm-vilna-pressing-(1880-86-ce)",
+        "title": "Romm Vilna Pressing (1880-86 CE)",
+        "he_title": "דפוס וילנא של האלמנה והאחים ראם (1880-86)",
+        "source": "https://www.nli.org.il/he/books/NNL_ALEPH001300957/NLI"
+      }
+    }
+  ],
+  "Berakhot 2b": [
+    {
+      "manuscript_slug": "bomberg-(venice)-pressing-(1523-ce)",
+      "page_id": "Berakhot 2b",
+      "image_url": "{base}/__image/bomberg.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/bomberg/masekhet_22_0009_thumbnail.jpg",
+      "anchorRef": "Berakhot 2",
+      "manuscript": {
+        "slug": "bomberg-(venice)-pressing-(1523-ce)",
+        "title": "Bomberg (Venice) Pressing (1523 CE)",
+        "he_title": "דפוס בומברג (ונציה) (1523)",
+        "source": "https://rosetta.nli.org.il"
+      }
+    },
+    {
+      "manuscript_slug": "bomberg-(venice)-pressing-(1523-ce)",
+      "page_id": "Berakhot 3a",
+      "image_url": "{base}/__image/bomberg.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/bomberg/masekhet_22_0010_thumbnail.jpg",
+      "anchorRef": "Berakhot 2b-3a",
+      "manuscript": {
+        "slug": "bomberg-(venice)-pressing-(1523-ce)",
+        "title": "Bomberg (Venice) Pressing (1523 CE)",
+        "he_title": "דפוס בומברג (ונציה) (1523)",
+        "source": "https://rosetta.nli.org.il"
+      }
+    },
+    {
+      "manuscript_slug": "munich-manuscript-95-(1342-ce)",
+      "page_id": "Cod. hebr. 95 pg. 0278",
+      "image_url": "{base}/__image/munich.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/munich-manuscript/munich-manuscript-95Cod.hebr.95pg.0278_thumbnail.jpg",
+      "anchorRef": "Berakhot 2a-4a",
+      "manuscript": {
+        "slug": "munich-manuscript-95-(1342-ce)",
+        "title": "Munich Manuscript 95 (1342 CE)",
+        "he_title": "כתב יד מינכן 95 (1342)",
+        "source": "https://www.digitale-sammlungen.de"
+      }
+    },
+    {
+      "manuscript_slug": "romm-vilna-pressing-(1880-86-ce)",
+      "page_id": "Berakhot 2b",
+      "image_url": "{base}/__image/romm.png",
+      "thumbnail_url": "https://manuscripts.sefaria.org/vilna-romm/Berakhot_2b_thumbnail.jpg",
+      "anchorRef": "Berakhot 2b",
+      "manuscript": {
+        "slug": "romm-vilna-pressing-(1880-86-ce)",
+        "title": "Romm Vilna Pressing (1880-86 CE)",
+        "he_title": "דפוס וילנא של האלמנה והאחים ראם (1880-86)",
+        "source": "https://www.nli.org.il/he/books/NNL_ALEPH001300957/NLI"
+      }
+    }
+  ]
+}

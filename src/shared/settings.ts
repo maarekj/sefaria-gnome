@@ -26,6 +26,8 @@ const RawSettings = z.looseObject({
   language: z.optional(z.string()),
   /** calendrier de diaspora (sinon d'Israël) pour les lectures du jour */
   diaspora: z.optional(z.boolean()),
+  /** barre latérale (bibliothèque) affichée */
+  sidebar: z.optional(z.boolean()),
   /** traduction par IA : outil (none, claude, opencode), modèle (vide : défaut), langue cible */
   aiTool: z.optional(z.enum(['none', 'claude', 'opencode'])),
   aiModel: z.optional(z.string()),
@@ -39,13 +41,14 @@ export interface Settings {
   readonly display: Display;
   readonly language: string;
   readonly diaspora: boolean;
+  readonly sidebar: boolean;
   readonly aiTool: AiTool;
   readonly aiModel: string;
   readonly aiLanguage: string;
   readonly books: Readonly<Record<string, BookVersions>>;
 }
 
-const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', diaspora: true, aiTool: 'none', aiModel: '', aiLanguage: 'french', books: {} };
+const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', diaspora: true, sidebar: true, aiTool: 'none', aiModel: '', aiLanguage: 'french', books: {} };
 
 const decoder = new TextDecoder();
 
@@ -66,6 +69,7 @@ export function readSettings(file = settingsFile()): Settings {
         display: d.display ?? DEFAULTS.display,
         language: d.language ?? DEFAULTS.language,
         diaspora: d.diaspora ?? DEFAULTS.diaspora,
+        sidebar: d.sidebar ?? DEFAULTS.sidebar,
         aiTool: d.aiTool ?? DEFAULTS.aiTool,
         aiModel: d.aiModel ?? DEFAULTS.aiModel,
         aiLanguage: d.aiLanguage ?? DEFAULTS.aiLanguage,

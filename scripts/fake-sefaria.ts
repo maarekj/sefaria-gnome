@@ -5,6 +5,7 @@
 //   première section via `firstAvailableSectionRef`, une référence inconnue { error }) ;
 //   GET /api/shape/{titre}, /api/v2/raw/index/{titre} : table des matières (e2e/fixtures/books.json) ;
 //   POST /api/search-wrapper : recherche (e2e/fixtures/search.json par requête, première page) ;
+//   GET /api/manuscripts/{amud} : éditions d'un amud (e2e/fixtures/manuscripts.json, images /__image/) ;
 //   GET /api/calendars : lectures du jour (e2e/fixtures/calendars.json) ;
 //   GET /api/name/{texte} : complétion (e2e/fixtures/names.json, sinon aucune) ;
 //   GET /api/links/{ref} : liens d'un segment (e2e/fixtures/links.json, sinon aucun) ;
@@ -50,6 +51,7 @@ const links = z.parse(z.record(z.string(), z.array(z.unknown())), JSON.parse(fs.
 const names = z.parse(z.record(z.string(), z.unknown()), JSON.parse(fs.readFileSync(path.join(fixtures, 'names.json'), 'utf8')));
 const calendars: unknown = JSON.parse(fs.readFileSync(path.join(fixtures, 'calendars.json'), 'utf8'));
 const searches = z.parse(z.record(z.string(), z.unknown()), JSON.parse(fs.readFileSync(path.join(fixtures, 'search.json'), 'utf8')));
+const manuscripts = z.parse(z.record(z.string(), z.unknown()), JSON.parse(fs.readFileSync(path.join(fixtures, 'manuscripts.json'), 'utf8')));
 const requests: string[] = [];
 
 /** Réponse pour un livre entier : sans section, avec sa première section disponible. */
@@ -101,6 +103,20 @@ const server = http.createServer((req, res) => {
       if (!url.pathname.startsWith(prefix)) continue;
       const found = books[decodeURIComponent(url.pathname.slice(prefix.length))];
       respond(res, found === undefined ? 404 : 200, found === undefined ? { error: 'livre inconnu' } : found[part]);
+      return;
+    }
+    if (url.pathname.startsWith('/api/manuscripts/')) {
+      // images servies par le faux serveur lui-même ({base})
+      const found = manuscripts[decodeURIComponent(url.pathname.slice('/api/manuscripts/'.length))] ?? [];
+      respond(res, 200, JSON.parse(JSON.stringify(found).replaceAll('{base}', `http://${req.headers.host ?? '127.0.0.1'}`)));
+      return;
+    }
+    if (url.pathname.startsWith('/__image/')) {
+      const file = path.join(fixtures, `page-${path.basename(url.pathname, '.png')}.png`);
+      if (fs.existsSync(file)) {
+        res.writeHead(200, { 'content-type': 'image/png' });
+        res.end(fs.readFileSync(file));
+      } else respond(res, 404, { error: 'image inconnue' });
       return;
     }
     if (url.pathname === '/api/calendars') {

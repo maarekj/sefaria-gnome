@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import * as z from 'zod/mini';
-import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type DailyReading, parseSearch, searchBody, type SearchQuery, type SearchResults, type LinkCategory, parseCalendar, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
+import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type DailyReading, type Edition, parseManuscripts, parseSearch, searchBody, type SearchQuery, type SearchResults, type LinkCategory, parseCalendar, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
 import { HttpError } from './errors.ts';
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
@@ -66,6 +66,21 @@ export class SefariaClient {
   /** Liens (commentaires, sources…) d'un segment, sans texte. */
   async links(ref: string): Promise<LinkCategory[]> {
     return parseLinks(await this.get(`/api/links/${encodeURIComponent(ref)}?with_text=0`));
+  }
+
+  /** Éditions (pages imprimées, manuscrits) d'un amud du Talmud. */
+  async manuscripts(amud: string): Promise<Edition[]> {
+    return parseManuscripts(await this.get(`/api/manuscripts/${encodeURIComponent(amud)}`));
+  }
+
+  /** Contenu brut d'une URL (image d'une page). */
+  async bytes(url: string): Promise<GLib.Bytes> {
+    const msg = Soup.Message.new('GET', url);
+    if (msg === null) throw new Error(`URL invalide : ${url}`);
+    const bytes = await this.#session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
+    const status: number = msg.get_status();
+    if (status < 200 || status >= 300) throw new HttpError(status, `image : HTTP ${status}`);
+    return bytes;
   }
 
   /** Recherche plein texte ; `seen` : références déjà affichées (pages suivantes). */

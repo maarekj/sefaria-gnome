@@ -138,6 +138,7 @@ search.connect('activate', () => {
 });
 app.add_action(search);
 app.set_accels_for_action('app.search', ['<Control>f']);
+app.set_accels_for_action('win.toggle-sidebar', ['F9']);
 
 /** app.preferences : fenêtre des préférences (Ctrl+,) */
 const preferences = new Gio.SimpleAction({ name: 'preferences' });

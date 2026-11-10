@@ -641,3 +641,72 @@ export const sectionOf = (ref: string): string => {
   const i = ref.lastIndexOf(':');
   return i < 0 ? ref : ref.slice(0, i);
 };
+
+// ------------------------------------------------------------------ pages imprimées (/api/manuscripts/{amud})
+
+const RawManuscriptPage = z.looseObject({
+  page_id: z.string(),
+  image_url: z.string(),
+  manuscript: z.looseObject({ slug: z.string(), title: z.string(), he_title: z.optional(z.string()) }),
+});
+
+/** Image d'une page et son libellé (« Berakhot 2a », « Cod. hebr. 95 pg. 0278 »). */
+export interface PageImage {
+  readonly label: string;
+  readonly url: string;
+}
+
+/** Édition (imprimée ou manuscrite) et ses pages pour l'amud demandé. */
+export interface Edition {
+  readonly slug: string;
+  /** encre seule sur fond transparent (traitement de la photo à l'affichage) */
+  readonly clean?: boolean;
+  readonly title: string;
+  readonly heTitle: string;
+  readonly pages: readonly PageImage[];
+}
+
+/** Noms français des éditions courantes. */
+const EDITION_NAMES: readonly (readonly [string, string])[] = [
+  ['romm-vilna', 'Vilna (Romm, 1880-86)'],
+  ['bomberg', 'Venise (Bomberg, 1523)'],
+  ['munich-manuscript', 'Manuscrit de Munich 95 (1342)'],
+];
+
+/** Éditions disponibles, Vilna en tête ; pages dans l'ordre de Sefaria. */
+export function parseManuscripts(raw: unknown): Edition[] {
+  const editions = new Map<string, { slug: string; title: string; heTitle: string; pages: PageImage[] }>();
+  for (const item of z.parse(z.array(z.unknown()), raw)) {
+    const r = z.safeParse(RawManuscriptPage, item);
+    if (!r.success) continue;
+    const m = r.data.manuscript;
+    let e = editions.get(m.slug);
+    if (e === undefined) {
+      e = { slug: m.slug, title: EDITION_NAMES.find(([prefix]) => m.slug.startsWith(prefix))?.[1] ?? m.title, heTitle: m.he_title ?? '', pages: [] };
+      editions.set(m.slug, e);
+    }
+    if (!e.pages.some((p) => p.url === r.data.image_url)) e.pages.push({ label: r.data.page_id, url: r.data.image_url });
+  }
+  const sorted = [...editions.values()].toSorted((a, b) => Number(b.slug.startsWith('romm-vilna')) - Number(a.slug.startsWith('romm-vilna')));
+  // Vilna nettoyée (mêmes images) en tête
+  const vilna = sorted.find((e) => e.slug.startsWith('romm-vilna'));
+  return vilna === undefined ? sorted : [{ ...vilna, slug: `${vilna.slug}-clean`, title: 'Vilna (nettoyée)', clean: true }, ...sorted];
+}
+
+/** Amud du Talmud (« Berakhot 2a ») : livre et numéro ; null sinon. */
+function amudOf(ref: string): { book: string; daf: number; side: 'a' | 'b' } | null {
+  const m = /^(.+) (\d+)([ab])$/u.exec(ref);
+  if (m === null) return null;
+  return { book: m[1] ?? '', daf: Number(m[2]), side: m[3] === 'a' ? 'a' : 'b' };
+}
+
+export const isAmud = (ref: string): boolean => amudOf(ref) !== null;
+
+/** Amud voisin (2a → 2b → 3a ; avant 2a : aucun). */
+export function siblingAmud(ref: string, direction: 1 | -1): string | null {
+  const a = amudOf(ref);
+  if (a === null) return null;
+  const index = a.daf * 2 + (a.side === 'b' ? 1 : 0) + direction;
+  if (index < 4) return null;
+  return `${a.book} ${Math.floor(index / 2)}${index % 2 === 0 ? 'a' : 'b'}`;
+}

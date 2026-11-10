@@ -4,13 +4,14 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import Pango from 'gi://Pango';
 import { type Accessor, createComputed, createState, onCleanup } from 'gnim';
-import { type Passage, type Segment, segmentRef } from '../shared/api.ts';
+import { isAmud, type Passage, type Segment, segmentRef } from '../shared/api.ts';
 import { chapterTitle, passageItems } from '../shared/chapters.ts';
 import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
 import { linksPanel } from './LinksPanel.ts';
+import { openPageViewer } from './PageViewer.ts';
 import { attachCompletion } from './RefCompletion.ts';
 import type { Tabs } from './Tabs.ts';
 import { versionsMenu } from './VersionsMenu.ts';
@@ -282,6 +283,7 @@ export function ReaderPage({ tabs, settings, narrow, reading }: { tabs: Tabs; se
     <Adw.NavigationPage title="Lecture">
       <Adw.ToolbarView>
         <Adw.HeaderBar $type="top" decorationLayout={narrow((n) => (n ? ":close" : (Gtk.Settings.get_default()?.gtkDecorationLayout ?? ":minimize,maximize,close")))}>
+          <Gtk.ToggleButton $type="start" iconName="sidebar-show-symbolic" tooltipText="Afficher la bibliothèque (F9)" actionName="win.toggle-sidebar" />
           <Gtk.Button
             $type="start"
             iconName="go-previous-symbolic"
@@ -309,6 +311,17 @@ export function ReaderPage({ tabs, settings, narrow, reading }: { tabs: Tabs; se
             subtitle={tabs.passage((p) => (p?.state === 'ready' ? p.value.heRef : ''))}
           />
           <Gtk.Box $type="end" $={(self: Gtk.Box) => self.append(versions.button)} />
+          <Gtk.Button
+            $type="end"
+            iconName="image-x-generic-symbolic"
+            tooltipText="Page imprimée"
+            visible={tabs.passage((p) => p?.state === 'ready' && isAmud(p.value.sectionRef))}
+            onClicked={(self: Gtk.Button) => {
+              const p = ready();
+              const root = self.get_root();
+              if (p !== null) openPageViewer(root instanceof Gtk.Window ? root : null, tabs.store.client, p.sectionRef);
+            }}
+          />
           <Gtk.ToggleButton
             $type="end"
             iconName="starred-symbolic"
