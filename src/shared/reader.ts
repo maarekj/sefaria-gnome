@@ -40,6 +40,9 @@ export class Reader {
   readonly ai: Accessor<AiState>;
   readonly #setAi: Setter<AiState>;
   #aiCancel: Gio.Cancellable | null = null;
+  /** segment à sélectionner et à faire défiler jusqu'à lui au prochain affichage (résultat de recherche) */
+  #pendingSelect: string | null = null;
+  #reveal = false;
 
   /** Référence demandée (champ de saisie d'un onglet en chargement ou en erreur). */
   get wanted(): string {
@@ -57,7 +60,14 @@ export class Reader {
     [this.ai, this.#setAi] = createState<AiState>({ state: 'off' });
     // nouveau passage affiché : traduit si la traduction par IA est active dans l'onglet
     this.passage.subscribe(() => {
-      if (this.passage.peek()?.state === 'ready' && this.aiOn.peek()) this.translateSection();
+      if (this.passage.peek()?.state !== 'ready') return;
+      if (this.#pendingSelect !== null) {
+        const ref = this.#pendingSelect;
+        this.#pendingSelect = null;
+        this.#reveal = true;
+        this.#setSelected(ref);
+      }
+      if (this.aiOn.peek()) this.translateSection();
     });
   }
 
@@ -106,6 +116,19 @@ export class Reader {
     this.#aiCancel = null;
     this.#setAiOn(false);
     this.#setAi({ state: 'off' });
+  }
+
+  /** Ouvre la section `section` avec le segment `segment` sélectionné et visible. */
+  openAt(section: string, segment: string): void {
+    this.#pendingSelect = segment;
+    this.open(section);
+  }
+
+  /** Défilement jusqu'au segment sélectionné demandé (une fois). */
+  takeReveal(): boolean {
+    const r = this.#reveal;
+    this.#reveal = false;
+    return r;
   }
 
   /** Référence affichée (ou demandée), vide si aucune. */

@@ -31,10 +31,11 @@ function nodeList(nodes: readonly LibraryNode[], activate: (n: LibraryNode) => v
   return scrolled(list);
 }
 
-function page(title: string, content: Gtk.Widget, tag?: string, end?: Gtk.Widget): Adw.NavigationPage {
+function page(title: string, content: Gtk.Widget, tag?: string, end?: Gtk.Widget, start?: Gtk.Widget): Adw.NavigationPage {
   const view = new Adw.ToolbarView({ content });
   const header = new Adw.HeaderBar();
   if (end !== undefined) header.pack_end(end);
+  if (start !== undefined) header.pack_start(start);
   view.add_top_bar(header);
   return new Adw.NavigationPage({ title, child: view, ...(tag === undefined ? {} : { tag }) });
 }
@@ -255,9 +256,11 @@ export function LibraryPane({ tabs, reading, settings }: { tabs: Tabs; reading: 
   if (!(root instanceof Gtk.Widget)) throw new TypeError('widget attendu');
   // menu principal
   const menu = new Gio.Menu();
+  menu.append('Rechercher', 'app.search');
   menu.append('Préférences', 'app.preferences');
   menu.append('À propos de Sefaria pour GNOME', 'app.about');
   menu.append('Quitter', 'app.quit');
-  nav.add(page('Bibliothèque', root, 'library', new Gtk.MenuButton({ iconName: 'open-menu-symbolic', tooltipText: 'Menu principal', menuModel: menu, primary: true })));
+  const searchButton = new Gtk.Button({ iconName: 'system-search-symbolic', tooltipText: 'Rechercher (Ctrl+F)', actionName: 'app.search' });
+  nav.add(page('Bibliothèque', root, 'library', new Gtk.MenuButton({ iconName: 'open-menu-symbolic', tooltipText: 'Menu principal', menuModel: menu, primary: true }), searchButton));
   return new Adw.NavigationPage({ title: 'Bibliothèque', child: nav });
 }

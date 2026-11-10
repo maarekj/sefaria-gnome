@@ -550,3 +550,94 @@ export function parseCalendar(raw: unknown): DailyReading[] {
     return [{ name: DAILY_NAMES[en] ?? en, heName: d.title.he ?? '', value: d.displayValue.en ?? ref, heValue: d.displayValue.he ?? '', ref, aliyot: d.extraDetails?.aliyot ?? [] }];
   });
 }
+
+// ------------------------------------------------------------------ recherche (POST /api/search-wrapper)
+
+/** Recherche : formes du mot (lemmatiseur de Sefaria) ou expression exacte. */
+export type SearchMode = 'forms' | 'exact';
+
+export interface SearchQuery {
+  readonly text: string;
+  readonly mode: SearchMode;
+  /** catégorie (chemin « Tanakh », « Talmud/Bavli »), vide : tout */
+  readonly category: string;
+  readonly from: number;
+  readonly size: number;
+}
+
+/** Corps de la requête (format du site de Sefaria). */
+export function searchBody(q: SearchQuery): unknown {
+  return {
+    query: q.text,
+    type: 'text',
+    field: q.mode === 'exact' ? 'exact' : 'naive_lemmatizer',
+    size: q.size,
+    from: q.from,
+    source_proj: true,
+    aggs: ['path'],
+    filters: q.category === '' ? [] : [q.category],
+    filter_fields: q.category === '' ? [] : ['path'],
+    sort_method: 'score',
+    sort_fields: ['pagesheetrank'],
+    sort_reverse: false,
+    slop: 0,
+  };
+}
+
+const RawHit = z.looseObject({
+  _source: z.looseObject({ ref: z.string(), heRef: z.optional(z.string()), lang: z.optional(z.string()), version: z.optional(z.string()), categories: z.optional(z.array(z.string())) }),
+  highlight: z.optional(z.record(z.string(), z.array(z.string()))),
+});
+const SearchResponse = z.looseObject({
+  hits: z.looseObject({ total: z.union([z.number(), z.looseObject({ value: z.number() })]), hits: z.array(z.unknown()) }),
+  aggregations: z.optional(z.looseObject({ path: z.optional(z.looseObject({ buckets: z.array(z.looseObject({ key: z.string(), doc_count: z.number() })) })) })),
+});
+
+/** Résultat : passage trouvé, extraits (HTML de Sefaria, mots trouvés en gras), langue de l'extrait. */
+export interface SearchHit {
+  readonly ref: string;
+  readonly heRef: string;
+  readonly category: string;
+  readonly snippets: readonly string[];
+  readonly hebrew: boolean;
+}
+
+export interface SearchResults {
+  readonly total: number;
+  readonly hits: readonly SearchHit[];
+  /** catégories principales et nombre de résultats (agrégations) */
+  readonly categories: readonly { readonly name: string; readonly count: number }[];
+}
+
+/** Résultats validés ; une même référence (plusieurs versions) n'apparaît qu'une fois. */
+export function parseSearch(raw: unknown, seen: ReadonlySet<string> = new Set()): SearchResults {
+  const r = z.parse(SearchResponse, raw);
+  const known = new Set(seen);
+  const hits: SearchHit[] = [];
+  for (const h of r.hits.hits) {
+    const p = z.safeParse(RawHit, h);
+    if (!p.success || known.has(p.data._source.ref)) continue;
+    known.add(p.data._source.ref);
+    const s = p.data._source;
+    hits.push({
+      ref: s.ref,
+      heRef: s.heRef ?? '',
+      category: (s.categories ?? []).join(' › '),
+      snippets: Object.values(p.data.highlight ?? {}).flat().slice(0, 2),
+      hebrew: s.lang === 'he',
+    });
+  }
+  const counts = new Map<string, number>();
+  for (const b of r.aggregations?.path?.buckets ?? []) {
+    const top = b.key.split('/')[0] ?? '';
+    if (top !== '') counts.set(top, (counts.get(top) ?? 0) + b.doc_count);
+  }
+  const total = typeof r.hits.total === 'number' ? r.hits.total : r.hits.total.value;
+  return { total, hits, categories: [...counts.entries()].map(([name, count]) => ({ name, count })).toSorted((a, b) => b.count - a.count) };
+}
+
+/** Section d'une référence de segment (« Exodus 3:2 » → « Exodus 3 », « Berakhot 7a:31 » → « Berakhot 7a »). */
+export const sectionOf = (ref: string): string => {
+  const i = ref.lastIndexOf(':');
+  return i < 0 ? ref : ref.slice(0, i);
+};

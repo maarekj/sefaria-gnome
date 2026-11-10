@@ -4,6 +4,7 @@
 //   GET /api/index, GET /api/v3/texts/{ref} : comme l'API réelle (un titre de livre renvoie sa
 //   première section via `firstAvailableSectionRef`, une référence inconnue { error }) ;
 //   GET /api/shape/{titre}, /api/v2/raw/index/{titre} : table des matières (e2e/fixtures/books.json) ;
+//   POST /api/search-wrapper : recherche (e2e/fixtures/search.json par requête, première page) ;
 //   GET /api/calendars : lectures du jour (e2e/fixtures/calendars.json) ;
 //   GET /api/name/{texte} : complétion (e2e/fixtures/names.json, sinon aucune) ;
 //   GET /api/links/{ref} : liens d'un segment (e2e/fixtures/links.json, sinon aucun) ;
@@ -48,6 +49,7 @@ const books = z.parse(z.record(z.string(), z.object({ shape: z.unknown(), index:
 const links = z.parse(z.record(z.string(), z.array(z.unknown())), JSON.parse(fs.readFileSync(path.join(fixtures, 'links.json'), 'utf8')));
 const names = z.parse(z.record(z.string(), z.unknown()), JSON.parse(fs.readFileSync(path.join(fixtures, 'names.json'), 'utf8')));
 const calendars: unknown = JSON.parse(fs.readFileSync(path.join(fixtures, 'calendars.json'), 'utf8'));
+const searches = z.parse(z.record(z.string(), z.unknown()), JSON.parse(fs.readFileSync(path.join(fixtures, 'search.json'), 'utf8')));
 const requests: string[] = [];
 
 /** Réponse pour un livre entier : sans section, avec sa première section disponible. */
@@ -69,6 +71,19 @@ const server = http.createServer((req, res) => {
     return;
   }
   requests.push(`${url.pathname}${url.search}`);
+  if (req.method === 'POST' && url.pathname === '/api/search-wrapper') {
+    let body = '';
+    req.on('data', (c: Buffer) => {
+      body += c.toString();
+    });
+    req.on('end', () => {
+      const q = z.safeParse(z.looseObject({ query: z.string(), from: z.optional(z.number()) }), JSON.parse(body));
+      requests.push(`search ${body}`);
+      const found = q.success && (q.data.from ?? 0) === 0 ? searches[q.data.query] : undefined;
+      respond(res, 200, found ?? { hits: { total: 0, hits: [] }, aggregations: { path: { buckets: [] } } });
+    });
+    return;
+  }
   setTimeout(() => {
     if (url.pathname === '/api/index') {
       respond(res, 200, index);

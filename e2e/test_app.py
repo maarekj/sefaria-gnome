@@ -308,3 +308,31 @@ def test_traduction_d_un_commentaire(run_app):
     # contexte : la section entière (verset signalé, versets voisins) et tous les commentaires
     assert all(f'Rashi on Genesis 1:1:{i}' in prompt for i in (1, 2, 3))
     assert 'VERSET COMMENTÉ' in prompt and 'God said, “Let there be light”' in prompt
+
+
+def test_recherche(run_app):
+    from conftest import Atspi
+
+    fake, app = run_app()
+    app.key('ctrl+f')
+    assert app.text_visible('Rechercher dans la bibliothèque')
+    # champ de recherche du dialogue : dernier champ éditable affiché
+    entries = app.root.findChildren(lambda n: n.roleName in ('text', 'entry') and n.showing and n.getState().contains(Atspi.StateType.EDITABLE))
+    entry = entries[-1]
+    entry.text = 'בראשית ברא'
+    wait_until(lambda: entry.text == 'בראשית ברא', 5, 'recherche saisie')
+    # aucune requête pendant la saisie : seulement à la validation
+    assert not any(r.startswith('search ') for r in fake.requests())
+    app.point(entry)
+    app.key('End')
+    app.key('Return')
+    assert app.text_visible('2386 résultats')
+    body = [r for r in fake.requests() if r.startswith('search ')][-1]
+    assert '"field":"naive_lemmatizer"' in body
+    # une référence trouvée dans plusieurs versions n'apparaît qu'une fois
+    assert len(app.all('label', 'Genesis 1:1')) == 1
+    # résultat ouvert dans un nouvel onglet : section, verset sélectionné (liens affichés)
+    app.point(app.find('label', 'Genesis 1:1'))
+    assert app.text_visible('When God began to create heaven and earth')
+    wait_until(lambda: app.has('button', 'Fermer les liens'), 10, 'verset sélectionné')
+    assert any(r.startswith('/api/v3/texts/Genesis%201?') for r in fake.requests())

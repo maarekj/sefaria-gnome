@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import * as z from 'zod/mini';
-import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type DailyReading, type LinkCategory, parseCalendar, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
+import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type DailyReading, parseSearch, searchBody, type SearchQuery, type SearchResults, type LinkCategory, parseCalendar, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
 import { HttpError } from './errors.ts';
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
@@ -22,10 +22,11 @@ export class SefariaClient {
     this.url = url.replace(/\/+$/u, '');
   }
 
-  /** GET `path` (déjà encodé), réponse JSON brute. */
-  async get(path: string): Promise<unknown> {
-    const msg = Soup.Message.new('GET', `${this.url}${path}`);
+  /** GET (ou POST JSON si `body`) `path` (déjà encodé), réponse JSON brute. */
+  async get(path: string, body?: unknown): Promise<unknown> {
+    const msg = Soup.Message.new(body === undefined ? 'GET' : 'POST', `${this.url}${path}`);
     if (msg === null) throw new Error(`URL invalide : ${this.url}${path}`);
+    if (body !== undefined) msg.set_request_body_from_bytes('application/json', new GLib.Bytes(new TextEncoder().encode(JSON.stringify(body))));
     const bytes = await this.#session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
     const data = bytes.get_data();
     const text = data === null ? '' : decoder.decode(data);
@@ -65,6 +66,11 @@ export class SefariaClient {
   /** Liens (commentaires, sources…) d'un segment, sans texte. */
   async links(ref: string): Promise<LinkCategory[]> {
     return parseLinks(await this.get(`/api/links/${encodeURIComponent(ref)}?with_text=0`));
+  }
+
+  /** Recherche plein texte ; `seen` : références déjà affichées (pages suivantes). */
+  async search(q: SearchQuery, seen?: ReadonlySet<string>): Promise<SearchResults> {
+    return parseSearch(await this.get('/api/search-wrapper', searchBody(q)), seen);
   }
 
   /** Lectures du jour (calendrier de diaspora ou d'Israël). */

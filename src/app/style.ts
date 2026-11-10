@@ -74,6 +74,10 @@ export const STYLESHEET = `
   min-height: 24px;
   font-size: 0.9em;
 }
+.search-hebrew {
+  font-family: "${HEBREW_FONT}", serif;
+  font-size: 1.25em;
+}
 .ref-entry {
   min-width: 110px;
 }

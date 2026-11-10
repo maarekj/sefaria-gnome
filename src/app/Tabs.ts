@@ -98,6 +98,11 @@ export class Tabs {
     return this.#add(ref);
   }
 
+  /** Nouvel onglet sur la section `section`, segment `segment` sélectionné et visible. */
+  newTabAt(section: string, segment: string): void {
+    this.#add(null).openAt(section, segment);
+  }
+
   /** Ouvre `ref` dans l'onglet affiché. */
   open(ref: string): void {
     this.current.peek().open(ref);

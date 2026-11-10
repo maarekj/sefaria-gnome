@@ -14,6 +14,7 @@ import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
 import type { Tabs } from './Tabs.ts';
 import { openPreferences } from './Preferences.ts';
+import { openSearch } from './SearchDialog.ts';
 import { STYLESHEET } from './style.ts';
 import { canGrow, canShrink, scaleCss, stepScale } from './TextScale.ts';
 
@@ -129,6 +130,14 @@ const followHistory = (): void => {
   sync();
   historySubs = [r.canGoBack.subscribe(sync), r.canGoForward.subscribe(sync)];
 };
+
+/** app.search : recherche plein texte (Ctrl+F) */
+const search = new Gio.SimpleAction({ name: 'search' });
+search.connect('activate', () => {
+  if (mainWindow !== null && tabs !== null) openSearch(mainWindow, tabs);
+});
+app.add_action(search);
+app.set_accels_for_action('app.search', ['<Control>f']);
 
 /** app.preferences : fenêtre des préférences (Ctrl+,) */
 const preferences = new Gio.SimpleAction({ name: 'preferences' });

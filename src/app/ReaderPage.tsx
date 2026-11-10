@@ -1,5 +1,6 @@
 // Page de lecture : saisie d'une référence, passage en hébreu et en traduction, segment par segment.
 import Adw from 'gi://Adw?version=1';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import Pango from 'gi://Pango';
 import { type Accessor, createComputed, createState, onCleanup } from 'gnim';
@@ -145,6 +146,16 @@ export function ReaderView({ reader, tabs, settings, linksCollapsed }: { reader:
     const ref = reader.selected.peek();
     highlighted = ref === null ? undefined : segments.get(ref);
     highlighted?.add_css_class('selected-segment');
+    // résultat de recherche : défilement jusqu'au segment, une fois sa mise en page faite
+    const target = highlighted;
+    if (target !== undefined && reader.takeReveal()) {
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+        const content = scroller?.child;
+        const [ok, bounds] = content === null || content === undefined ? [false, null] : target.compute_bounds(content);
+        if (ok && bounds !== null && scroller !== null) scroller.vadjustment.set_value(Math.max(0, bounds.get_y() - 24));
+        return GLib.SOURCE_REMOVE;
+      });
+    }
   };
   /** sélection (un clic sur le segment déjà sélectionné, ex. pour en sélectionner le texte, ne ferme rien) */
   const select = (ref: string): void => reader.select(ref);

@@ -43,7 +43,7 @@
     {
       "files": ["src/**"],
       "rules": {
-        "no-underscore-dangle": ["error", { "allow": ["_promisify"] }]
+        "no-underscore-dangle": ["error", { "allow": ["_promisify", "_source"] }]
       }
     },
     {
