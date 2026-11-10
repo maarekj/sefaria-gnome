@@ -336,3 +336,20 @@ def test_recherche(run_app):
     assert app.text_visible('When God began to create heaven and earth')
     wait_until(lambda: app.has('button', 'Fermer les liens'), 10, 'verset sélectionné')
     assert any(r.startswith('/api/v3/texts/Genesis%201?') for r in fake.requests())
+
+
+def test_traduction_talmud_gras(run_app):
+    fake, app = run_app(ref='Berakhot 2a')
+    app.text_visible('The beginning of tractate')
+    app.key('ctrl+comma')
+    app.point(app.find(None, 'Outil'))
+    app.point(app.find(None, 'Claude Code'))
+    app.key('Escape')
+    app.point(app.find(None, 'Aa'))
+    app.click('toggle button', 'Traduire en français')
+    assert app.text_visible('[IA] traduction du segment 1', 15)
+    prompt = ai_prompts(fake)[-1]['prompt']
+    # traduction existante transmise avec son gras, consigne de tout traduire en le gardant
+    assert '<b>MISHNA:</b> <b>From when,</b> that is, from what time' in prompt and 'EN ENTIER' in prompt
+    # la réponse en gras est affichée comme telle (balisage, pas de « <b> » littéral)
+    assert not app.has('label', contains='<b>')

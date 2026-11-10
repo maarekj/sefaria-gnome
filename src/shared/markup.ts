@@ -82,3 +82,20 @@ export function plainText(html: string): string {
     .replaceAll(/\s+/gu, ' ')
     .trim();
 }
+
+/**
+ * HTML de Sefaria réduit au gras et à l'italique (notes retirées), pour l'envoyer à un traducteur
+ * qui doit garder la distinction traduction littérale (gras) / explication.
+ */
+export function richText(html: string): string {
+  return sefariaMarkup(html)
+    .replaceAll(/<(?!\/?[bi]>)[^>]+>/gu, '')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+    .replaceAll(/\s+/gu, ' ')
+    .trim();
+}
+
+/** Traduction mêlant littéral en gras et explication (Steinsaltz, William Davidson…). */
+export const hasBold = (html: string): boolean => /<(?:b|strong)\b/iu.test(html);

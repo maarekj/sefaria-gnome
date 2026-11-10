@@ -136,7 +136,7 @@ class CommentaryGroup {
           for (const [label, l] of b.translations) {
             const text = values[label];
             if (text === undefined) continue;
-            l.label = withDirection(escapeMarkup(text), false);
+            l.label = withDirection(sefariaMarkup(text), false);
             l.visible = true;
           }
         }
@@ -207,6 +207,7 @@ function verseTranslation(reader: Reader): { widget: Gtk.Widget; select: (ref: s
     cancellable = c;
     button.sensitive = false;
     result.visible = true;
+    result.useMarkup = false;
     result.label = `Traduction en ${languageLabel(o.language)}…`;
     void (async () => {
       let text: string;
@@ -216,7 +217,8 @@ function verseTranslation(reader: Reader): { widget: Gtk.Widget; select: (ref: s
         text = `Traduction impossible : ${errorMessage(error)}`;
       }
       if (cancellable !== c || current !== ref) return;
-      result.label = text;
+      result.useMarkup = true;
+      result.label = text.startsWith('Traduction impossible') ? escapeMarkup(text) : withDirection(sefariaMarkup(text), false);
       button.sensitive = true;
     })();
   });

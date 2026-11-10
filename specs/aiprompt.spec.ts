@@ -46,4 +46,21 @@ describe('traduction par IA', () => {
     expect(p).toContain('[c1.1] בְּרֵאשִׁית');
     expect(commentaryKey(c1, '2')).toBe('c1.2');
   });
+  it('traduction avec gras (Steinsaltz) : transmise avec son balisage, consigne de tout traduire', () => {
+    const talmud = toPassage(
+      z.parse(TextResponse, {
+        ref: 'Berakhot 2a',
+        sections: ['2a'],
+        textDepth: 2,
+        versions: [
+          { language: 'he', versionTitle: 'H', text: ['מֵאֵימָתַי'] },
+          { language: 'en', versionTitle: 'WD', text: ['<b>From when</b> does one recite <i>Shema</i><sup class="footnote-marker">1</sup><i class="footnote">n</i>'] },
+        ],
+      }),
+    );
+    const p = buildPrompt(talmud, 'french');
+    expect(p).toContain('(traduction existante : <b>From when</b> does one recite <i>Shema</i>)');
+    expect(p).toContain('EN ENTIER');
+    expect(buildPrompt(passage, 'french')).not.toContain('EN ENTIER');
+  });
 });

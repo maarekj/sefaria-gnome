@@ -2,7 +2,22 @@
 // Sans dépendance à GJS ni à Node.
 import * as z from 'zod/mini';
 import type { Passage } from './api.ts';
-import { plainText } from './markup.ts';
+import { hasBold, plainText, richText } from './markup.ts';
+
+/** Version de l'invite (dans la clé du cache : une invite modifiée retraduit). */
+export const PROMPT_VERSION = 2;
+
+/** Traduction existante pour l'invite : avec son gras (mode « littéral + explication ») ou en texte brut. */
+const existing = (html: string, rich: boolean): string => (rich ? richText(html) : plainText(html));
+
+/** Consignes du mode « littéral + explication » (traduction existante avec du gras). */
+const RICH_RULES = [
+  "La traduction existante suit la présentation traditionnelle : en <b>gras</b> la traduction littérale du texte original, sans gras l'explication qui l'enrobe.",
+  "Traduis cette traduction existante EN ENTIER (traduction littérale ET explications), en vérifiant la partie littérale sur le texte original ;",
+  'garde <b>…</b> autour de ce qui traduit littéralement le texte original, laisse les explications sans gras, et <i>…</i> pour les mots translittérés.',
+  "Pour un segment sans traduction existante, traduis simplement l'original.",
+  'Dans le JSON, les valeurs peuvent contenir uniquement les balises <b> et <i>.',
+];
 
 /** Langues cibles proposées (famille → nom dans l'invite et dans les préférences). */
 export const AI_LANGUAGES: readonly (readonly [string, string])[] = [
@@ -31,9 +46,10 @@ export interface Commented {
 }
 
 export function buildPrompt(passage: Passage, language: string, only?: string, commented?: Commented): string {
+  const rich = passage.segments.some((s) => hasBold(s.en));
   const lines = passage.segments.map((s) => {
     const he = plainText(s.he);
-    const en = plainText(s.en);
+    const en = existing(s.en, rich);
     return `[${s.label}] ${he}${en === '' ? '' : `\n    (traduction existante : ${en})`}`;
   });
   const target = only === undefined ? 'chaque segment' : `uniquement le segment [${only}]`;
@@ -54,6 +70,7 @@ export function buildPrompt(passage: Passage, language: string, only?: string, c
     ...lines,
     '',
     `Traduis ${target} en ${languageLabel(language)}, fidèlement au texte original, en tenant compte du contexte de la section et de la tradition d'interprétation juive ;`,
+    ...(rich ? RICH_RULES : []),
     'garde les noms propres sous leur forme usuelle dans cette langue, sans notes ni commentaires.',
     'Réponds UNIQUEMENT par un objet JSON dont les clés sont les numéros de segment (ex. "1", "2:5") et les valeurs les traductions, sans texte autour.',
   ].join('\n');
@@ -102,10 +119,11 @@ export function buildCommentaryPrompt(comments: readonly Commentary[], section: 
     const en = plainText(s.en);
     return `(${s.label}) ${plainText(s.he)}${mark}${en === '' ? '' : `\n    (traduction : ${en})`}`;
   });
+  const rich = comments.some((c) => c.passage.segments.some((s) => hasBold(s.en)));
   const commentLines = comments.flatMap((c) => [
     `— ${c.passage.ref} :`,
     ...c.passage.segments.map((s) => {
-      const en = plainText(s.en);
+      const en = existing(s.en, rich);
       return `[${commentaryKey(c, s.label)}] ${plainText(s.he)}${en === '' ? '' : `\n    (traduction existante : ${en})`}`;
     }),
   ]);
@@ -122,6 +140,7 @@ export function buildCommentaryPrompt(comments: readonly Commentary[], section: 
     '',
     `Traduis chaque commentaire en ${languageLabel(language)}, fidèlement, en tenant compte du verset, de la section et des autres commentaires ;`,
     "les mots du verset cités en tête d'un commentaire (dibour hamathil) se traduisent comme dans le verset ; sans notes ni ajouts.",
+    ...(rich ? RICH_RULES : []),
     'Réponds UNIQUEMENT par un objet JSON dont les clés sont les identifiants entre crochets (ex. "c1", "c2.1") et les valeurs les traductions, sans texte autour.',
   ].join('\n');
 }

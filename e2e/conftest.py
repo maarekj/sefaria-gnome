@@ -158,7 +158,8 @@ class App:
                 return False
             # retour à la racine de la bibliothèque
             self.key('alt+Left')
-            self.text_gone('Torah', 5)
+            # libellé exact : le passage affiché peut contenir le mot « Torah »
+            wait_until(lambda: not self.has('label', 'Torah'), 5, 'retour à la racine de la bibliothèque')
             return True
 
         # 17 px : ombre de la fenêtre Adwaita sous Xvfb

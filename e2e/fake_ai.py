@@ -18,5 +18,5 @@ only = re.search(r'uniquement le segment \[([^\]]+)\]', prompt)
 labels = [only.group(1)] if only else re.findall(r'^\[([^\]]+)\]', prompt, re.M)
 print('Voici la traduction :\n```json')
 text = 'verset seul' if only else 'segment'
-print(json.dumps({label: f'[IA] traduction du {text} {label}' for label in labels}, ensure_ascii=False))
+print(json.dumps({label: f'<b>[IA]</b> traduction du {text} {label}' for label in labels}, ensure_ascii=False))
 print('```')

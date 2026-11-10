@@ -3,7 +3,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as z from 'zod/mini';
-import { buildCommentaryPrompt, buildPrompt, type Commentary, type Commented, commentaryKey, parseAiResponse } from './aiprompt.ts';
+import { buildCommentaryPrompt, buildPrompt, PROMPT_VERSION, type Commentary, type Commented, commentaryKey, parseAiResponse } from './aiprompt.ts';
 import type { Passage } from './api.ts';
 import type { AiTool } from './settings.ts';
 
@@ -66,7 +66,7 @@ const decoder = new TextDecoder();
 const CacheEntry = z.record(z.string(), z.string());
 
 function cacheFile(p: Passage, o: AiOptions, only: string | undefined, commented?: string): string {
-  return cachePath([p.ref, only ?? '', p.heVersion, p.enVersion, o.language, o.tool, o.model.trim(), ...(commented === undefined ? [] : [commented])]);
+  return cachePath([PROMPT_VERSION, p.ref, only ?? '', p.heVersion, p.enVersion, o.language, o.tool, o.model.trim(), ...(commented === undefined ? [] : [commented])]);
 }
 
 function readCache(file: string): Record<string, string> | null {
@@ -140,7 +140,7 @@ export async function translateCommentaries(
 ): Promise<Map<string, Record<string, string>>> {
   const comments: Commentary[] = passages.map((passage, i) => ({ id: `c${i + 1}`, passage }));
   const labels = comments.flatMap((c) => c.passage.segments.map((s) => commentaryKey(c, s.label)));
-  const key = ['commentaires', passages.map((p) => [p.ref, p.heVersion, p.enVersion]), commented, section.ref, section.heVersion, section.enVersion, o.language, o.tool, o.model.trim()];
+  const key = [PROMPT_VERSION, 'commentaires', passages.map((p) => [p.ref, p.heVersion, p.enVersion]), commented, section.ref, section.heVersion, section.enVersion, o.language, o.tool, o.model.trim()];
   const values = await cachedRun(cachePath(key), () => buildCommentaryPrompt(comments, section, commented, segmentRef, o.language, author), labels, o, cancellable, false);
   return new Map(
     comments.map((c) => {

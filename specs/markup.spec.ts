@@ -1,5 +1,5 @@
 // HTML de Sefaria → balisage Pango.
-import { decodeEntities, sefariaMarkup, withDirection } from '../src/shared/markup.ts';
+import { decodeEntities, hasBold, richText, sefariaMarkup, withDirection } from '../src/shared/markup.ts';
 
 describe('sefariaMarkup', () => {
   it('conserve la mise en forme et échappe le texte', () => {
@@ -22,5 +22,13 @@ describe('sefariaMarkup', () => {
   it('marque de direction', () => {
     expect(withDirection('בראשית IN', false)).toBe('\u200Eבראשית IN');
     expect(withDirection('א', true)).toBe('\u200Fא');
+  });
+  it('texte riche pour l’IA : gras et italique seulement, notes retirées', () => {
+    expect(richText('<strong>a</strong> <span>b</span> <big>c</big> &amp; <i>d</i><i class="footnote">n</i>')).toBe('<b>a</b> b c & <i>d</i>');
+    expect(hasBold('x <b>y</b>')).toBeTrue();
+    expect(hasBold('<big>x</big>')).toBeFalse();
+  });
+  it('réponse de l’IA assainie : seules les balises connues gardées', () => {
+    expect(sefariaMarkup('<b>Or</b> un <script>x</script> & <i>y</i>')).toBe('<b>Or</b> un x &amp; <i>y</i>');
   });
 });

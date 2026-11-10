@@ -6,7 +6,7 @@ import Pango from 'gi://Pango';
 import { type Accessor, createComputed, createState, onCleanup } from 'gnim';
 import { type Passage, type Segment, segmentRef } from '../shared/api.ts';
 import { chapterTitle, passageItems } from '../shared/chapters.ts';
-import { escapeMarkup, sefariaMarkup, withDirection } from '../shared/markup.ts';
+import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
@@ -107,9 +107,9 @@ function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) =>
   // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
   const hasTranslation = ai !== null || p.enVersion !== '';
   const shown: Display = display === 'translation' && !hasTranslation ? 'hebrew' : display === 'hebrew' && p.heVersion === '' ? 'translation' : display;
-  // traduction par IA : texte brut, échappé pour le balisage
+  // traduction par IA : HTML limité (gras, italique), assaini par sefariaMarkup comme le texte de Sefaria ;
   // segment non traduit par l'IA : rien plutôt que le texte de Sefaria (pas de mélange sous la mention « IA »)
-  const segs = ai === null ? p.segments : p.segments.map((s) => ({ ...s, en: escapeMarkup(ai.values[s.label] ?? '') }));
+  const segs = ai === null ? p.segments : p.segments.map((s) => ({ ...s, en: ai.values[s.label] ?? '' }));
   const visible = segs.filter((s) => !(shown === 'hebrew' && s.he === '') && !(shown === 'translation' && s.en === ''));
   for (const item of passageItems(visible, p.multiChapter)) {
     if (item.kind === 'chapter') {
