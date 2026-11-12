@@ -9,6 +9,7 @@ import { SefariaClient } from '../shared/client.ts';
 import { bookOf } from '../shared/api.ts';
 import { SettingsStore } from '../shared/settings.ts';
 import { ReadingStore } from '../shared/userdata.ts';
+import { libraryCacheFile } from '../shared/librarycache.ts';
 import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
 import { focusRefEntry, MainWindow } from './MainWindow.tsx';
@@ -34,7 +35,7 @@ const store = new Store(new SefariaClient(), (ref) => {
   // langue préférée) : elle sert de repli pour ce livre seulement
   if (tr?.language === s.language) return { translation: tr, hebrew: chosen?.hebrew };
   return { translation: { language: s.language }, fallback: tr, hebrew: chosen?.hebrew };
-});
+}, { libraryCache: libraryCacheFile() });
 // traduction par IA : réglages des préférences
 store.aiOptions = () => {
   const s = settings.value.peek();

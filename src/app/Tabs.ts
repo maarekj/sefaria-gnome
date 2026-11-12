@@ -15,8 +15,8 @@ interface Tab {
 }
 
 /** Titre d'onglet : référence du passage. */
-const tabTitle = (p: Load<Passage> | null): string => {
-  if (p === null) return 'Nouvel onglet';
+const tabTitle = (p: Load<Passage> | null, wanted = ''): string => {
+  if (p === null) return wanted === '' ? 'Nouvel onglet' : wanted;
   if (p.state === 'ready') return p.value.ref;
   return p.state === 'loading' ? 'Chargement…' : 'Texte introuvable';
 };
@@ -47,7 +47,10 @@ export class Tabs {
     this.view.connect('notify::selected-page', () => {
       const page = this.view.selectedPage;
       const tab = page === null ? undefined : this.#tabs.get(page);
-      if (tab !== undefined) this.#setCurrent(tab.reader);
+      if (tab !== undefined) {
+        tab.reader.wake();
+        this.#setCurrent(tab.reader);
+      }
       this.#changed();
     });
     this.view.connect('page-reordered', () => this.#changed());
@@ -62,14 +65,18 @@ export class Tabs {
     });
   }
 
-  /** Crée un onglet après l'onglet affiché (`ref` : passage à ouvrir). */
-  #add(ref: string | null): Reader {
+  /**
+   * Crée un onglet après l'onglet affiché (`ref` : passage à ouvrir) ; `background` : ajouté à la fin,
+   * non affiché, `ref` chargée à son premier affichage.
+   */
+  #add(ref: string | null, background = false): Reader {
     const reader = new Reader(this.store);
     const tab = createRoot((dispose) => {
       const child = this.#render(reader, this);
       const selected = this.view.selectedPage;
-      const page = selected === null ? this.view.append(child) : this.view.add_page(child, selected);
-      page.title = tabTitle(reader.passage.peek());
+      const page = selected === null || background ? this.view.append(child) : this.view.add_page(child, selected);
+      if (background && ref !== null) reader.defer(ref);
+      page.title = tabTitle(reader.passage.peek(), reader.wanted);
       const unsubscribe = reader.passage.subscribe(() => {
         const p = reader.passage.peek();
         page.title = tabTitle(p);
@@ -89,6 +96,7 @@ export class Tabs {
       });
       return page;
     });
+    if (background) return reader;
     if (ref !== null) reader.open(ref);
     this.view.selectedPage = tab;
     return reader;
@@ -122,14 +130,23 @@ export class Tabs {
     return { tabs, current: Math.min(current, Math.max(0, tabs.length - 1)) };
   }
 
-  /** Rouvre une session : premier onglet réutilisé, les autres ajoutés, puis l'onglet affiché. */
+  /**
+   * Rouvre une session : premier onglet réutilisé, les autres ajoutés en arrière-plan ; seul l'onglet
+   * affiché est chargé, les autres le sont à leur premier affichage.
+   */
   restore(refs: readonly string[], current: number): void {
+    const first = this.current.peek();
     refs.forEach((ref, i) => {
-      if (i === 0) this.open(ref);
-      else this.newTab(ref);
+      if (i === 0) first.defer(ref);
+      else this.#add(ref, true);
     });
-    const page = refs.length > 0 ? this.view.get_nth_page(Math.min(current, this.view.nPages - 1)) : null;
-    if (page !== null) this.view.selectedPage = page;
+    const page = refs.length > 0 ? this.view.get_nth_page(Math.min(Math.max(0, current), this.view.nPages - 1)) : null;
+    if (page === null) return;
+    const firstPage = this.view.get_nth_page(0);
+    firstPage.title = tabTitle(null, first.wanted);
+    this.view.selectedPage = page;
+    // déjà affiché (pas de changement de sélection) : chargé ici
+    this.#tabs.get(page)?.reader.wake();
   }
 
   /** Libère tous les onglets (fermeture de la fenêtre : leurs racines gnim ne dépendent pas d'elle). */

@@ -48,3 +48,19 @@ describe('reader', () => {
     expect(reader.passage.peek()?.state).toBe('loading');
   });
 });
+
+describe('reader différé', () => {
+  it('onglet restauré : rien demandé avant son affichage', async () => {
+    const client = new ManualClient('http://localhost:1');
+    const reader = new Reader(new Store(client));
+    reader.defer('Genesis 3');
+    expect(reader.ref).toBe('Genesis 3');
+    expect(client.pending.length).toBe(0);
+    reader.wake();
+    reader.wake();
+    expect(client.pending.map((p) => p.ref)).toEqual(['Genesis 3']);
+    client.pending[0]?.resolve(passage('Genesis 3', 'v'));
+    await tick();
+    expect(reader.passage.peek()?.state).toBe('ready');
+  });
+});

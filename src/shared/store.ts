@@ -5,6 +5,7 @@ import type { DailyReading, LibraryNode, LinkCategory, Passage, Toc, VersionInfo
 import type { SefariaClient } from './client.ts';
 import type { AiOptions } from './translate.ts';
 import { errorMessage } from './errors.ts';
+import { isStale, readLibraryCache, writeLibraryCache } from './librarycache.ts';
 
 /** Chargement asynchrone. */
 export type Load<T> = { readonly state: 'loading' } | { readonly state: 'ready'; readonly value: T } | { readonly state: 'error'; readonly message: string };
@@ -41,19 +42,36 @@ export class Store {
   readonly #versions = new Map<string, Promise<VersionInfo[]>>();
   readonly #calendars = new Map<string, Promise<DailyReading[]>>();
 
-  constructor(client: SefariaClient, versionsFor: VersionsFor = () => ({ translation: { language: 'english' } })) {
+  /** cache disque de la bibliothèque (null : aucun) */
+  readonly libraryCache: string | null;
+
+  constructor(client: SefariaClient, versionsFor: VersionsFor = () => ({ translation: { language: 'english' } }), options: { libraryCache?: string | null } = {}) {
     this.client = client;
+    this.libraryCache = options.libraryCache ?? null;
     this.versionsFor = versionsFor;
     [this.library, this.#setLibrary] = createState<Load<readonly LibraryNode[]>>({ state: 'loading' });
   }
 
-  loadLibrary(): void {
+  /**
+   * Bibliothèque : copie en cache affichée tout de suite (rafraîchie en arrière-plan si ancienne),
+   * sinon téléchargée. `cacheFile` null : pas de cache (tests).
+   */
+  loadLibrary(cacheFile: string | null = this.libraryCache): void {
     this.#setLibrary({ state: 'loading' });
     void (async () => {
+      const saved = cacheFile === null ? null : await readLibraryCache(this.client.url, cacheFile);
+      if (saved !== null) {
+        this.#setLibrary({ state: 'ready', value: saved.nodes });
+        if (!isStale(saved.fetched)) return;
+      }
       try {
-        this.#setLibrary({ state: 'ready', value: await this.client.index() });
+        const nodes = await this.client.index();
+        // rafraîchissement identique : la barre latérale n'est pas reconstruite
+        if (saved === null || JSON.stringify(nodes) !== JSON.stringify(saved.nodes)) this.#setLibrary({ state: 'ready', value: nodes });
+        if (cacheFile !== null) await writeLibraryCache(this.client.url, nodes, cacheFile);
       } catch (error) {
-        this.#setLibrary({ state: 'error', message: errorMessage(error) });
+        // copie en cache affichée : l'échec du rafraîchissement est sans effet
+        if (saved === null) this.#setLibrary({ state: 'error', message: errorMessage(error) });
       }
     })();
   }

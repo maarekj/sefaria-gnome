@@ -202,9 +202,17 @@ def test_reprise_signets_historique(run_app):
     app.stop()
     # relance : mêmes onglets, onglet Genesis 2 affiché
     from conftest import App
+    before = len(fake.requests())
     app2 = App(fake, 'The heaven and the earth were finished')
     try:
         assert app2.has(None, 'Genesis 1')
+        # bibliothèque lue du cache disque ; onglets non affichés : chargés seulement à l'affichage
+        assert app2.has('label', 'Tanakh')
+        relaunch = fake.requests()[before:]
+        assert not any(r.startswith('/api/index') for r in relaunch), relaunch
+        assert not any('Genesis%201' in r for r in relaunch), relaunch
+        app2.key('ctrl+Page_Up')
+        assert app2.text_visible('When God began to create heaven and earth')
         app2.point(app2.find('label', 'Signets'))
         assert app2.has('label', 'Genesis 1')
     finally:

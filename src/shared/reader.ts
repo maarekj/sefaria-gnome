@@ -30,6 +30,7 @@ export class Reader {
   /** chargement en cours (un plus récent, même de la même référence, rend les précédents caducs) */
   #generation = 0;
   #disposed = false;
+  #deferred = false;
   /** historique de l'onglet : passages précédents et suivants (Alt+Gauche / Alt+Droite) */
   #back: string[] = [];
   #forward: string[] = [];
@@ -185,9 +186,36 @@ export class Reader {
     this.#load(ref);
   }
 
+  /**
+   * Onglet restauré non affiché : `ref` retenue (titre, session) mais chargée seulement au premier
+   * affichage (`wake`), pour ne pas tout demander au lancement.
+   */
+  defer(ref: string): void {
+    const wanted = ref.trim();
+    if (wanted === '' || this.passage.peek() !== null) return;
+    this.#wanted = wanted;
+    this.#deferred = true;
+  }
+
+  /** Onglet affiché : charge la référence différée. */
+  wake(): void {
+    if (!this.#deferred) return;
+    this.#deferred = false;
+    this.#load(this.#wanted);
+  }
+
+  /** Référence retenue mais pas encore chargée (onglet restauré jamais affiché). */
+  get deferred(): boolean {
+    return this.#deferred;
+  }
+
   /** Ouvre la référence `ref` (« Genesis 1 », « Berakhot 2a », un titre de livre…). */
   open(ref: string): void {
     const wanted = ref.trim();
+    if (this.#deferred && wanted === this.#wanted) {
+      this.wake();
+      return;
+    }
     if (wanted === '' || wanted === this.ref) return;
     // passage quitté : dans l'historique de l'onglet
     if (this.ref !== '') this.#back.push(this.ref);
@@ -197,6 +225,7 @@ export class Reader {
 
   #load(wanted: string): void {
     if (this.#disposed) return;
+    this.#deferred = false;
     this.#syncHistory();
     this.#generation += 1;
     const gen = this.#generation;
