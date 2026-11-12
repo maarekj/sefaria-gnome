@@ -2,6 +2,7 @@
 import GLib from 'gi://GLib';
 import { type Accessor, createState, type Setter } from 'gnim';
 import * as z from 'zod/mini';
+import { readDataFile, writeDataFile } from './datafile.ts';
 
 /** Outil de traduction par IA. */
 export type AiTool = 'none' | 'claude' | 'opencode';
@@ -16,24 +17,7 @@ export interface BookVersions {
   readonly translation?: { readonly language: string; readonly title: string };
 }
 
-const RawSettings = z.looseObject({
-  /** hébreu et traduction côte à côte */
-  twoColumns: z.optional(z.boolean()),
-  /** échelle du texte lu (1 : taille par défaut), bornée à l'usage */
-  textScale: z.optional(z.number().check(z.positive())),
-  display: z.optional(z.enum(['both', 'hebrew', 'translation'])),
-  /** famille de langue de la traduction (« english », « french »…) */
-  language: z.optional(z.string()),
-  /** calendrier de diaspora (sinon d'Israël) pour les lectures du jour */
-  diaspora: z.optional(z.boolean()),
-  /** barre latérale (bibliothèque) affichée */
-  sidebar: z.optional(z.boolean()),
-  /** traduction par IA : outil (none, claude, opencode), modèle (vide : défaut), langue cible */
-  aiTool: z.optional(z.enum(['none', 'claude', 'opencode'])),
-  aiModel: z.optional(z.string()),
-  aiLanguage: z.optional(z.string()),
-  books: z.optional(z.record(z.string(), z.object({ hebrew: z.optional(z.string()), translation: z.optional(z.object({ language: z.string(), title: z.string() })) }))),
-});
+const BookSchema = z.object({ hebrew: z.optional(z.string()), translation: z.optional(z.object({ language: z.string(), title: z.string() })) });
 
 export interface Settings {
   readonly twoColumns: boolean;
@@ -50,41 +34,40 @@ export interface Settings {
 
 const DEFAULTS: Settings = { twoColumns: false, textScale: 1, display: 'both', language: 'english', diaspora: true, sidebar: true, aiTool: 'none', aiModel: '', aiLanguage: 'french', books: {} };
 
-const decoder = new TextDecoder();
-
 export const settingsFile = (): string => GLib.build_filenamev([GLib.get_user_config_dir(), 'sefaria-gnome', 'settings.json']);
 
-/** Réglages lus (valeurs par défaut si fichier absent ou invalide). */
+/** Réglages lus : chaque réglage invalide prend sa valeur par défaut (fichier absent : défauts). */
 export function readSettings(file = settingsFile()): Settings {
-  try {
-    const [, bytes] = GLib.file_get_contents(file);
-    const r = z.safeParse(RawSettings, JSON.parse(decoder.decode(bytes)));
-    if (r.success) {
-      const d = r.data;
+  return readDataFile(
+    file,
+    (l) => {
       const books: Record<string, BookVersions> = {};
-      for (const [k, v] of Object.entries(d.books ?? {})) books[k] = { ...(v.hebrew === undefined ? {} : { hebrew: v.hebrew }), ...(v.translation === undefined ? {} : { translation: v.translation }) };
+      for (const [k, v] of Object.entries(l.entries('books', BookSchema) ?? {})) books[k] = { ...(v.hebrew === undefined ? {} : { hebrew: v.hebrew }), ...(v.translation === undefined ? {} : { translation: v.translation }) };
       return {
-        twoColumns: d.twoColumns ?? DEFAULTS.twoColumns,
-        textScale: d.textScale ?? DEFAULTS.textScale,
-        display: d.display ?? DEFAULTS.display,
-        language: d.language ?? DEFAULTS.language,
-        diaspora: d.diaspora ?? DEFAULTS.diaspora,
-        sidebar: d.sidebar ?? DEFAULTS.sidebar,
-        aiTool: d.aiTool ?? DEFAULTS.aiTool,
-        aiModel: d.aiModel ?? DEFAULTS.aiModel,
-        aiLanguage: d.aiLanguage ?? DEFAULTS.aiLanguage,
+        /** hébreu et traduction côte à côte */
+        twoColumns: l.field('twoColumns', z.boolean()) ?? DEFAULTS.twoColumns,
+        /** échelle du texte lu (1 : taille par défaut), bornée à l'usage */
+        textScale: l.field('textScale', z.number().check(z.positive())) ?? DEFAULTS.textScale,
+        display: l.field('display', z.enum(['both', 'hebrew', 'translation'])) ?? DEFAULTS.display,
+        /** famille de langue de la traduction (« english », « french »…) */
+        language: l.field('language', z.string()) ?? DEFAULTS.language,
+        /** calendrier de diaspora (sinon d'Israël) pour les lectures du jour */
+        diaspora: l.field('diaspora', z.boolean()) ?? DEFAULTS.diaspora,
+        /** barre latérale (bibliothèque) affichée */
+        sidebar: l.field('sidebar', z.boolean()) ?? DEFAULTS.sidebar,
+        /** traduction par IA : outil, modèle (vide : défaut), langue cible */
+        aiTool: l.field('aiTool', z.enum(['none', 'claude', 'opencode'])) ?? DEFAULTS.aiTool,
+        aiModel: l.field('aiModel', z.string()) ?? DEFAULTS.aiModel,
+        aiLanguage: l.field('aiLanguage', z.string()) ?? DEFAULTS.aiLanguage,
         books,
       };
-    }
-  } catch {
-    // absent ou illisible
-  }
-  return DEFAULTS;
+    },
+    DEFAULTS,
+  );
 }
 
 export function writeSettings(s: Settings, file = settingsFile()): void {
-  GLib.mkdir_with_parents(GLib.path_get_dirname(file), 0o755);
-  GLib.file_set_contents(file, JSON.stringify(s, null, 2));
+  writeDataFile(file, s);
 }
 
 /** Réglages réactifs, enregistrés à chaque modification. */

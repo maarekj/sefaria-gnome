@@ -84,6 +84,7 @@ export class Tabs {
         dispose: () => {
           unsubscribe();
           dispose();
+          reader.dispose();
         },
       });
       return page;

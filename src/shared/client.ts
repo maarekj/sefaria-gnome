@@ -4,7 +4,7 @@ import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import * as z from 'zod/mini';
 import { DEFAULT_URL, firstSection, type LibraryNode, type Passage, type Completion, type DailyReading, type Edition, parseManuscripts, parseSearch, searchBody, type SearchQuery, type SearchResults, type LinkCategory, parseCalendar, parseCompletion, parseIndex, parseLinks, parseToc, parseVersions, type Toc, TextResponse, toPassage, type VersionInfo, versionParams, type Wanted } from './api.ts';
-import { HttpError } from './errors.ts';
+import { HttpError, httpErrorMessage, tryJson } from './errors.ts';
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
 
@@ -31,11 +31,10 @@ export class SefariaClient {
     const data = bytes.get_data();
     const text = data === null ? '' : decoder.decode(data);
     const status: number = msg.get_status();
-    if (status < 200 || status >= 300) {
-      const parsed = z.safeParse(z.object({ error: z.string() }), text === '' ? null : JSON.parse(text));
-      throw new HttpError(status, parsed.success ? parsed.data.error : `GET ${path} : HTTP ${status}`);
-    }
-    const json: unknown = text === '' ? null : JSON.parse(text);
+    const method = body === undefined ? 'GET' : 'POST';
+    if (status < 200 || status >= 300) throw new HttpError(status, httpErrorMessage(method, path, status, text));
+    const json = tryJson(text);
+    if (json === undefined) throw new Error(`${method} ${path} : réponse illisible (pas du JSON)`);
     // l'API répond parfois 200 avec { error }
     const error = z.safeParse(z.object({ error: z.string() }), json);
     if (error.success) throw new HttpError(404, error.data.error);

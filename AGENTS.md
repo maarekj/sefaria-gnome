@@ -55,6 +55,11 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
 - Hébreu : libellé placé à droite (`xalign: 1`) et `justify: LEFT` : Pango détecte la direction RTL
   du paragraphe et inverse LEFT / RIGHT (`justify: RIGHT` renverrait les lignes suivantes à gauche).
   Pas de `set_direction(RTL)` (qui inverse `xalign`).
+- Abonnement à un état partagé (fenêtre, `tabs.passage`, réglages) : jamais libéré sur `destroy`
+  (qui ne vient pas tant que l'abonnement retient le widget). Dans un onglet : `onCleanup` (racine de
+  l'onglet) ; page de la barre latérale : `whileMapped` (`LibraryPane.tsx`).
+- Fichiers de l'utilisateur : `readDataFile` / `writeDataFile` (`src/shared/datafile.ts`), champ par
+  champ avec `Lenient` : une valeur invalide est ignorée seule, l'original copié en `.bak`.
 - Tout bouton à icône seule a une infobulle.
 - Ne jamais bloquer la boucle principale (requêtes et traitements longs en asynchrone).
 - Respecter le serveur de Sefaria : pas de requêtes en rafale ni de tests sur le vrai serveur

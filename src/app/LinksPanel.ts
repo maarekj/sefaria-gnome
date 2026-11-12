@@ -88,10 +88,13 @@ class CommentaryGroup {
   readonly #book: LinkBook;
   readonly #blocks = new Map<string, Block>();
   #running = false;
+  /** annulé quand la sélection change ou que le panneau est libéré */
+  readonly #cancellable: Gio.Cancellable;
 
-  constructor(reader: Reader, book: LinkBook) {
+  constructor(reader: Reader, book: LinkBook, cancellable: Gio.Cancellable) {
     this.#reader = reader;
     this.#book = book;
+    this.#cancellable = cancellable;
   }
 
   /** Bouton « Traduire » d'une source affichée. */
@@ -130,7 +133,8 @@ class CommentaryGroup {
         const settled = await Promise.allSettled(refs.map((r) => this.#reader.store.linkedText(r)));
         const passages = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
         if (passages.length === 0) throw new Error('textes des commentaires indisponibles');
-        const result = await translateCommentaries(passages, section, commented, (label) => segmentRef(section, label), this.#book.title, o, new Gio.Cancellable());
+        const result = await translateCommentaries(passages, section, commented, (label) => segmentRef(section, label), this.#book.title, o, this.#cancellable);
+        if (this.#cancellable.is_cancelled()) return;
         for (const [ref, b] of this.#blocks) {
           const values = result.get(ref) ?? {};
           for (const [label, l] of b.translations) {
@@ -142,7 +146,7 @@ class CommentaryGroup {
         }
         this.#notes(`Traduction par IA (${o.tool === 'claude' ? 'Claude Code' : 'opencode'})`, false);
       } catch (error) {
-        this.#notes(`Traduction impossible : ${errorMessage(error)}`, true);
+        if (!this.#cancellable.is_cancelled()) this.#notes(`Traduction impossible : ${errorMessage(error)}`, true);
       } finally {
         this.#running = false;
       }
@@ -151,8 +155,8 @@ class CommentaryGroup {
 }
 
 /** Page d'une source : textes de ses références, par lots. */
-function bookPage(reader: Reader, book: LinkBook, openSource: OpenSource): Adw.NavigationPage {
-  const group = new CommentaryGroup(reader, book);
+function bookPage(reader: Reader, book: LinkBook, openSource: OpenSource, cancellable: Gio.Cancellable): Adw.NavigationPage {
+  const group = new CommentaryGroup(reader, book, cancellable);
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 18, marginTop: 12, marginBottom: 18, marginStart: 12, marginEnd: 12 });
   let shown = 0;
   const more = new Gtk.Button({ label: 'Afficher la suite', halign: Gtk.Align.CENTER, cssClasses: ['pill'] });
@@ -170,7 +174,7 @@ function bookPage(reader: Reader, book: LinkBook, openSource: OpenSource): Adw.N
 }
 
 /** Liste des catégories et de leurs sources. */
-function categoriesList(reader: Reader, categories: readonly LinkCategory[], push: (p: Adw.NavigationPage) => void, openSource: OpenSource): Gtk.Widget {
+function categoriesList(reader: Reader, categories: readonly LinkCategory[], push: (p: Adw.NavigationPage) => void, openSource: OpenSource, cancellable: Gio.Cancellable): Gtk.Widget {
   if (categories.length === 0) return new Adw.StatusPage({ iconName: 'dialog-information-symbolic', title: 'Aucun lien' });
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12, marginTop: 12, marginBottom: 18, marginStart: 12, marginEnd: 12 });
   for (const c of categories) {
@@ -179,7 +183,7 @@ function categoriesList(reader: Reader, categories: readonly LinkCategory[], pus
       const row = new Adw.ActionRow({ title: b.title, subtitle: b.heTitle, activatable: true, useMarkup: false });
       row.add_suffix(new Gtk.Label({ label: String(b.refs.length), cssClasses: ['dim-label'] }));
       row.add_suffix(new Gtk.Image({ iconName: 'go-next-symbolic' }));
-      row.connect('activated', () => push(bookPage(reader, b, openSource)));
+      row.connect('activated', () => push(bookPage(reader, b, openSource, cancellable)));
       group.add(row);
     }
     box.append(group);
@@ -235,7 +239,14 @@ function verseTranslation(reader: Reader): { widget: Gtk.Widget; select: (ref: s
   const unsubscribe = reader.store.aiChanged((): void => {
     box.visible = current !== null && reader.store.aiOptions() !== null;
   });
-  return { widget: box, select, dispose: unsubscribe };
+  return {
+    widget: box,
+    select,
+    dispose: () => {
+      unsubscribe();
+      cancellable?.cancel();
+    },
+  };
 }
 
 /** Panneau latéral : liens du segment sélectionné de l'onglet (`reader.selected`). */
@@ -257,10 +268,15 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
   let current: string | null = null;
   /** chargement en cours (un plus récent rend les précédents caducs) */
   let generation = 0;
+  /** traductions groupées des commentaires du segment affiché */
+  let translations = new Gio.Cancellable();
   const show = (): void => {
     const ref = reader.selected.peek();
     if (ref === current) return;
     current = ref;
+    translations.cancel();
+    translations = new Gio.Cancellable();
+    const cancellable = translations;
     verse.select(ref);
     nav.pop_to_tag('links');
     title.subtitle = ref ?? '';
@@ -272,7 +288,7 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
     void (async () => {
       let widget: Gtk.Widget;
       try {
-        widget = categoriesList(reader, await reader.store.links(ref), (p) => nav.push(p), openSource);
+        widget = categoriesList(reader, await reader.store.links(ref), (p) => nav.push(p), openSource, cancellable);
       } catch (error) {
         widget = new Adw.StatusPage({ iconName: 'network-offline-symbolic', title: 'Liens indisponibles', description: errorMessage(error) });
       }
@@ -289,6 +305,7 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
     dispose: () => {
       unsubscribe();
       verse.dispose();
+      translations.cancel();
     },
   };
 }

@@ -1,8 +1,10 @@
 // Données de lecture de l'utilisateur : onglets ouverts (reprise au lancement), historique et
-// signets. Fichier $XDG_DATA_HOME/sefaria-gnome/reading.json, validé par zod.
+// signets. Fichier $XDG_DATA_HOME/sefaria-gnome/reading.json, validé par zod
+// (entrée par entrée : une entrée invalide est ignorée, le fichier d'origine copié en .bak).
 import GLib from 'gi://GLib';
 import { type Accessor, createState, type Setter } from 'gnim';
 import * as z from 'zod/mini';
+import { readDataFile, writeDataFile } from './datafile.ts';
 
 /** Passage mémorisé (référence et son nom hébreu). */
 export interface Place {
@@ -22,36 +24,27 @@ export interface ReadingData {
 /** Taille maximale de l'historique. */
 export const HISTORY_MAX = 100;
 
-const PlaceSchema = z.object({ ref: z.string(), heRef: z.string() });
-const Schema = z.object({
-  tabs: z.optional(z.array(z.string())),
-  current: z.optional(z.number()),
-  history: z.optional(z.array(PlaceSchema)),
-  bookmarks: z.optional(z.array(PlaceSchema)),
-});
+const PlaceSchema = z.object({ ref: z.string().check(z.minLength(1)), heRef: z.string() });
 
 const EMPTY: ReadingData = { tabs: [], current: 0, history: [], bookmarks: [] };
-const decoder = new TextDecoder();
 
 export const readingFile = (): string => GLib.build_filenamev([GLib.get_user_data_dir(), 'sefaria-gnome', 'reading.json']);
 
+/** Données lues (entrées invalides ignorées une à une ; fichier absent : vides). */
 export function readReading(file = readingFile()): ReadingData {
-  try {
-    const [, bytes] = GLib.file_get_contents(file);
-    const r = z.safeParse(Schema, JSON.parse(decoder.decode(bytes)));
-    if (r.success) {
-      const tabs = (r.data.tabs ?? []).filter((t) => t !== '');
+  return readDataFile(
+    file,
+    (l) => {
+      const tabs = (l.items('tabs', z.string()) ?? []).filter((t) => t !== '');
       return {
         tabs,
-        current: Math.min(Math.max(0, Math.trunc(r.data.current ?? 0)), Math.max(0, tabs.length - 1)),
-        history: (r.data.history ?? []).slice(0, HISTORY_MAX),
-        bookmarks: r.data.bookmarks ?? [],
+        current: Math.min(Math.max(0, Math.trunc(l.field('current', z.number()) ?? 0)), Math.max(0, tabs.length - 1)),
+        history: (l.items('history', PlaceSchema) ?? []).slice(0, HISTORY_MAX),
+        bookmarks: l.items('bookmarks', PlaceSchema) ?? [],
       };
-    }
-  } catch {
-    // absent ou illisible
-  }
-  return EMPTY;
+    },
+    EMPTY,
+  );
 }
 
 /** Historique avec `place` en tête (dédoublonné, borné). */
@@ -79,8 +72,7 @@ export class ReadingStore {
     const next = { ...this.value.peek(), ...patch };
     this.#set(next);
     try {
-      GLib.mkdir_with_parents(GLib.path_get_dirname(this.#file), 0o755);
-      GLib.file_set_contents(this.#file, JSON.stringify(next, null, 2));
+      writeDataFile(this.#file, next);
     } catch (error) {
       console.error(`données de lecture non enregistrées : ${String(error)}`);
     }

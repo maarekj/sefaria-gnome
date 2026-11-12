@@ -27,6 +27,9 @@ export class Reader {
   readonly #setSelected: Setter<string | null>;
   /** dernière référence demandée (les réponses plus anciennes sont ignorées) */
   #wanted = '';
+  /** chargement en cours (un plus récent, même de la même référence, rend les précédents caducs) */
+  #generation = 0;
+  #disposed = false;
   /** historique de l'onglet : passages précédents et suivants (Alt+Gauche / Alt+Droite) */
   #back: string[] = [];
   #forward: string[] = [];
@@ -127,6 +130,14 @@ export class Reader {
     })();
   }
 
+  /** Onglet fermé : traduction en cours annulée (sous-processus arrêté), réponses ignorées. */
+  dispose(): void {
+    this.#disposed = true;
+    this.#generation += 1;
+    this.#aiCancel?.cancel();
+    this.#aiCancel = null;
+  }
+
   /** Annule la traduction en cours et quitte le mode IA de l'onglet (bouton du bandeau). */
   cancelAi(): void {
     this.#aiCancel?.cancel();
@@ -185,7 +196,10 @@ export class Reader {
   }
 
   #load(wanted: string): void {
+    if (this.#disposed) return;
     this.#syncHistory();
+    this.#generation += 1;
+    const gen = this.#generation;
     this.#wanted = wanted;
     this.#setSelected(null);
     // traduction de l'ancien passage : abandonnée (la nouvelle suit le chargement)
@@ -200,7 +214,7 @@ export class Reader {
       } catch (error) {
         next = { state: 'error', message: errorMessage(error) };
       }
-      if (this.#wanted === wanted) this.#setPassage(next);
+      if (gen === this.#generation && !this.#disposed) this.#setPassage(next);
     })();
   }
 

@@ -313,11 +313,9 @@ function withPagePane(text: Gtk.Widget, reader: Reader, tabs: Tabs, narrow: Acce
     text.visible = !full;
   };
   sync();
-  const subs = [reader.pageOn.subscribe(sync), reader.pageMax.subscribe(sync), reader.passage.subscribe(sync), narrow.subscribe(sync)];
-  paned.connect('destroy', () => {
-    subs.forEach((u) => u());
-    pane?.dispose();
-  });
+  // racine de l'onglet : libérée à sa fermeture (`destroy` ne viendrait jamais, `narrow` retenant le volet)
+  for (const s of [reader.pageOn, reader.pageMax, reader.passage, narrow]) onCleanup(s.subscribe(sync));
+  onCleanup(() => pane?.dispose());
   return paned;
 }
 

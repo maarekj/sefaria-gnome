@@ -22,4 +22,19 @@ describe('userdata', () => {
     GLib.file_set_contents(file, JSON.stringify({ tabs: ['Genesis 1', ''], current: 9 }));
     expect(readReading(file)).toEqual({ tabs: ['Genesis 1'], current: 0, history: [], bookmarks: [] });
   });
+  it('entrée invalide : seule elle est perdue, l’original est copié en .bak', () => {
+    const file = GLib.build_filenamev([GLib.get_tmp_dir(), `sefaria-reading-${GLib.random_int()}`, 'reading.json']);
+    GLib.mkdir_with_parents(GLib.path_get_dirname(file), 0o755);
+    const original = JSON.stringify({ tabs: ['Genesis 1', 3], current: 'x', history: [place('A'), { ref: 'B' }, place('C')], bookmarks: [place('D'), { ref: '', heRef: '' }] });
+    GLib.file_set_contents(file, original);
+    expect(readReading(file)).toEqual({ tabs: ['Genesis 1'], current: 0, history: [place('A'), place('C')], bookmarks: [place('D')] });
+    expect(new TextDecoder().decode(GLib.file_get_contents(`${file}.bak`)[1])).toBe(original);
+  });
+  it('fichier valide : pas de copie', () => {
+    const file = GLib.build_filenamev([GLib.get_tmp_dir(), `sefaria-reading-${GLib.random_int()}`, 'reading.json']);
+    GLib.mkdir_with_parents(GLib.path_get_dirname(file), 0o755);
+    GLib.file_set_contents(file, JSON.stringify({ tabs: ['Genesis 1'], history: [place('A')] }));
+    expect(readReading(file).history).toEqual([place('A')]);
+    expect(GLib.file_test(`${file}.bak`, GLib.FileTest.EXISTS)).toBe(false);
+  });
 });

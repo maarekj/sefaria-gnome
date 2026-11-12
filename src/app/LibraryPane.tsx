@@ -13,6 +13,21 @@ import type { Tabs } from './Tabs.ts';
 /** Noms français des types de section courants (sinon celui de Sefaria). */
 const SECTION_NAMES: Readonly<Record<string, string>> = { Chapter: 'Chapitres', Daf: 'Dapim', Siman: 'Simanim', Perek: 'Chapitres', Parasha: 'Parachiot', Psalm: 'Psaumes' };
 
+/**
+ * Abonnement à un état global tant que `widget` est affiché (`subscribe` le met aussi à jour) : une
+ * page retirée de la pile n'est plus retenue par l'état (son `destroy` ne viendrait jamais).
+ */
+export function whileMapped(widget: Gtk.Widget, subscribe: () => () => void): void {
+  let unsubscribe: (() => void) | null = null;
+  widget.connect('map', () => {
+    unsubscribe ??= subscribe();
+  });
+  widget.connect('unmap', () => {
+    unsubscribe?.();
+    unsubscribe = null;
+  });
+}
+
 const scrolled = (child: Gtk.Widget): Gtk.ScrolledWindow => new Gtk.ScrolledWindow({ hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true, child });
 
 /** Ligne activable (catégorie, livre ou partie) ; `more` : flèche vers une page suivante. */
@@ -58,8 +73,10 @@ function sectionGrid(sections: readonly TocSection[], tabs: Tabs): Gtk.Widget {
     current?.add_css_class('current-section');
   };
   highlight();
-  const unsubscribe = tabs.passage.subscribe(highlight);
-  flow.connect('destroy', unsubscribe);
+  whileMapped(flow, () => {
+    highlight();
+    return tabs.passage.subscribe(highlight);
+  });
   return flow;
 }
 
@@ -155,15 +172,16 @@ function placesPage(title: string, empty: string, places: () => readonly Place[]
     stack.visibleChildName = places().length === 0 ? 'empty' : 'list';
   };
   fillList();
-  const unsubscribe = reading.value.subscribe(fillList);
+  whileMapped(stack, () => {
+    fillList();
+    return reading.value.subscribe(fillList);
+  });
   let button: Gtk.Button | undefined;
   if (clear !== undefined) {
     button = new Gtk.Button({ iconName: 'edit-clear-all-symbolic', tooltipText: "Effacer l'historique" });
     button.connect('clicked', clear);
   }
-  const pg = page(title, stack, undefined, button);
-  pg.connect('destroy', unsubscribe);
-  return pg;
+  return page(title, stack, undefined, button);
 }
 
 /** Page « Aujourd'hui » : lectures du jour (paracha avec ses montées), calendrier diaspora / Israël. */
@@ -191,14 +209,20 @@ function todayPage(tabs: Tabs, settings: SettingsStore, push: (p: Adw.Navigation
     stack.add_named(scrolled(list), 'list');
     stack.visibleChildName = 'list';
   };
+  /** dernière demande (une réponse plus ancienne, ex. bascule rapide diaspora / Israël, est ignorée) */
+  let generation = 0;
   const load = (): void => {
+    generation += 1;
+    const gen = generation;
     for (let c = stack.get_first_child(); c !== null; c = stack.get_first_child()) stack.remove(c);
     stack.add_named(new Adw.Spinner({ widthRequest: 32, heightRequest: 32, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER }), 'loading');
     stack.visibleChildName = 'loading';
     void (async () => {
       try {
-        show(await tabs.store.calendar(settings.value.peek().diaspora));
+        const readings = await tabs.store.calendar(settings.value.peek().diaspora);
+        if (gen === generation) show(readings);
       } catch (error) {
+        if (gen !== generation) return;
         const status = new Adw.StatusPage({ iconName: 'network-offline-symbolic', title: 'Calendrier indisponible', description: errorMessage(error) });
         stack.add_named(status, 'error');
         stack.visibleChildName = 'error';
