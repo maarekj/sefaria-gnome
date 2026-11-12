@@ -22,20 +22,40 @@ const tick = (): Promise<void> => new Promise((resolve) => {
   });
 
 describe('reader', () => {
-  it('aller-retour A → B → A : la première réponse de A, arrivée après, est ignorée', async () => {
+  it('versions changées : la réponse de la première requête, arrivée après, est ignorée', async () => {
+    const client = new ManualClient('http://localhost:1');
+    let language = 'english';
+    const reader = new Reader(new Store(client, () => ({ translation: { language } })));
+    reader.open('Genesis 1');
+    client.pending[0]?.resolve(passage('Genesis 1', 'v1'));
+    await tick();
+    language = 'french';
+    reader.reload();
+    language = 'german';
+    reader.reload();
+    // la plus récente répond d'abord, l'autre ensuite
+    client.pending[2]?.resolve(passage('Genesis 1', 'german'));
+    await tick();
+    client.pending[1]?.resolve(passage('Genesis 1', 'french'));
+    await tick();
+    const p = reader.passage.peek();
+    expect(p?.state === 'ready' ? p.value.enVersion : null).toBe('german');
+  });
+
+  it('retour à un passage déjà lu : servi par le cache, sans requête', async () => {
     const client = new ManualClient('http://localhost:1');
     const reader = new Reader(new Store(client));
     reader.open('Genesis 1');
+    client.pending[0]?.resolve(passage('Genesis 1', 'v'));
+    await tick();
     reader.open('Genesis 2');
-    reader.open('Genesis 1');
-    // la plus récente répond d'abord, la première ensuite
-    client.pending[2]?.resolve(passage('Genesis 1', 'récente'));
+    client.pending[1]?.resolve(passage('Genesis 2', 'v'));
     await tick();
-    client.pending[0]?.resolve(passage('Genesis 1', 'ancienne'));
-    client.pending[1]?.resolve(passage('Genesis 2', 'B'));
+    reader.goBack();
     await tick();
+    expect(client.pending.length).toBe(2);
     const p = reader.passage.peek();
-    expect(p?.state === 'ready' ? p.value.enVersion : null).toBe('récente');
+    expect(p?.state === 'ready' ? p.value.ref : null).toBe('Genesis 1');
   });
 
   it('onglet fermé : plus aucune réponse affichée', async () => {

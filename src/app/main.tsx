@@ -9,6 +9,7 @@ import { SefariaClient } from '../shared/client.ts';
 import { bookOf } from '../shared/api.ts';
 import { SettingsStore } from '../shared/settings.ts';
 import { ReadingStore } from '../shared/userdata.ts';
+import { flushDataFiles } from '../shared/datafile.ts';
 import { libraryCacheFile } from '../shared/librarycache.ts';
 import { Store } from '../shared/store.ts';
 import { loadFonts } from './fonts.ts';
@@ -212,6 +213,17 @@ app.connect('activate', () => {
     win.present();
   });
 });
+
+// fermeture (dernière fenêtre, Ctrl+Q, fin de session) : modifications en attente écrites
+app.connect('shutdown', () => flushDataFiles());
+// SIGTERM / SIGINT (fin de session, tests) : arrêt propre plutôt que brutal
+for (const signal of [2, 15]) {
+  GLib.unix_signal_add(GLib.PRIORITY_HIGH, signal, () => {
+    flushDataFiles();
+    app.quit();
+    return GLib.SOURCE_REMOVE;
+  });
+}
 
 app.runAsync([imports.system.programInvocationName, ...ARGV]).catch((error: unknown) => {
   console.error(error);

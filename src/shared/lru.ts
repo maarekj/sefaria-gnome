@@ -31,6 +31,10 @@ export class Lru<K, V> {
     }
   }
 
+  delete(key: K): void {
+    this.#map.delete(key);
+  }
+
   keys(): K[] {
     return [...this.#map.keys()];
   }

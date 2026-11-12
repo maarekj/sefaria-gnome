@@ -2,7 +2,7 @@
 import Adw from 'gi://Adw?version=1';
 import type Gtk from 'gi://Gtk?version=4.0';
 import { type Accessor, createComputed, createRoot, createState, type Setter } from 'gnim';
-import type { Passage } from '../shared/api.ts';
+import { bookOf, type Passage } from '../shared/api.ts';
 import { Reader } from '../shared/reader.ts';
 import type { Load, Store } from '../shared/store.ts';
 
@@ -158,8 +158,10 @@ export class Tabs {
   /** Recharge les onglets du livre `book` (versions modifiées ; '' : tous les onglets). */
   reloadBook(book: string): void {
     for (const t of this.#tabs.values()) {
+      // onglet en chargement aussi (versions changées deux fois de suite) : livre déduit de la référence
       const p = t.reader.passage.peek();
-      if (p?.state === 'ready' && (book === '' || p.value.book === book)) t.reader.reload();
+      const ofBook = p?.state === 'ready' ? p.value.book === book : bookOf(t.reader.ref, { [book]: true }) === book;
+      if (p !== null && p.state !== 'error' && (book === '' || ofBook)) t.reader.reload();
     }
   }
 

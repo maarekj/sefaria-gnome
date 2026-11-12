@@ -50,7 +50,7 @@ function sourceBlock(reader: Reader, ref: string, openSource: OpenSource, group:
     let p: Passage | null = null;
     let error = '';
     try {
-      p = await reader.store.linkedText(ref);
+      p = await reader.store.text(ref);
     } catch (e) {
       error = errorMessage(e);
     }
@@ -130,7 +130,7 @@ class CommentaryGroup {
       try {
         // tous les commentaires de l'auteur sur ce verset (même non affichés : contexte), cache partagé
         // texte indisponible pour une source : traduite sans elle
-        const settled = await Promise.allSettled(refs.map((r) => this.#reader.store.linkedText(r)));
+        const settled = await Promise.allSettled(refs.map((r) => this.#reader.store.text(r)));
         const passages = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
         if (passages.length === 0) throw new Error('textes des commentaires indisponibles');
         const result = await translateCommentaries(passages, section, commented, (label) => segmentRef(section, label), this.#book.title, o, this.#cancellable);

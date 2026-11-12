@@ -2,7 +2,7 @@
 import GLib from 'gi://GLib';
 import { type Accessor, createState, type Setter } from 'gnim';
 import * as z from 'zod/mini';
-import { readDataFile, writeDataFile } from './datafile.ts';
+import { DataWriter, readDataFile, writeDataFile } from './datafile.ts';
 
 /** Outil de traduction par IA. */
 export type AiTool = 'none' | 'claude' | 'opencode';
@@ -74,21 +74,23 @@ export function writeSettings(s: Settings, file = settingsFile()): void {
 export class SettingsStore {
   readonly value: Accessor<Settings>;
   readonly #set: Setter<Settings>;
-  readonly #file: string;
+  readonly #writer: DataWriter;
 
   constructor(file = settingsFile()) {
-    this.#file = file;
+    this.#writer = new DataWriter(file, 'réglages');
     [this.value, this.#set] = createState(readSettings(file));
   }
 
   update(patch: Partial<Settings>): void {
     const next = { ...this.value.peek(), ...patch };
     this.#set(next);
-    try {
-      writeSettings(next, this.#file);
-    } catch (error) {
-      console.error(`réglages non enregistrés : ${String(error)}`);
-    }
+    // regroupée (ex. Ctrl+plus répété), asynchrone
+    this.#writer.schedule(next);
+  }
+
+  /** Écrit tout de suite les modifications en attente. */
+  flush(): void {
+    this.#writer.flush();
   }
 
   /** Modifie les versions choisies pour `book`. */

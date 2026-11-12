@@ -5,6 +5,7 @@ import type { DailyReading, LibraryNode, LinkCategory, Passage, Toc, VersionInfo
 import type { SefariaClient } from './client.ts';
 import type { AiOptions } from './translate.ts';
 import { errorMessage } from './errors.ts';
+import { Lru } from './lru.ts';
 import { isStale, readLibraryCache, writeLibraryCache } from './librarycache.ts';
 
 /** Chargement asynchrone. */
@@ -14,7 +15,7 @@ export type Load<T> = { readonly state: 'loading' } | { readonly state: 'ready';
 export type VersionsFor = (ref: string) => Wanted;
 
 /** Mise en cache d'une promesse (échec non conservé). */
-function cached<T>(cache: Map<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> {
+function cached<T>(cache: Lru<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> {
   let p = cache.get(key);
   if (p === undefined) {
     p = load();
@@ -36,11 +37,12 @@ export class Store {
   };
   readonly library: Accessor<Load<readonly LibraryNode[]>>;
   readonly #setLibrary: Setter<Load<readonly LibraryNode[]>>;
-  readonly #tocs = new Map<string, Promise<Toc>>();
-  readonly #links = new Map<string, Promise<LinkCategory[]>>();
-  readonly #texts = new Map<string, Promise<Passage>>();
-  readonly #versions = new Map<string, Promise<VersionInfo[]>>();
-  readonly #calendars = new Map<string, Promise<DailyReading[]>>();
+  // caches bornés (une longue session ne fait pas grossir la mémoire sans fin)
+  readonly #tocs = new Lru<string, Promise<Toc>>(50);
+  readonly #links = new Lru<string, Promise<LinkCategory[]>>(200);
+  readonly #texts = new Lru<string, Promise<Passage>>(200);
+  readonly #versions = new Lru<string, Promise<VersionInfo[]>>(50);
+  readonly #calendars = new Lru<string, Promise<DailyReading[]>>(4);
 
   /** cache disque de la bibliothèque (null : aucun) */
   readonly libraryCache: string | null;
@@ -97,10 +99,13 @@ export class Store {
     return cached(this.#links, ref, () => this.client.links(ref));
   }
 
-  /** Texte d'une source liée, dans les versions des réglages. */
-  linkedText(ref: string): Promise<Passage> {
+  /**
+   * Texte de `ref` dans les versions des réglages (passage d'un onglet, source liée) : retour en
+   * arrière, historique ou deux onglets sur le même passage ne refont pas la requête.
+   */
+  text(ref: string): Promise<Passage> {
     const wanted = this.versionsFor(ref);
-    // versions dans la clé : un changement de réglages recharge les sources
+    // versions dans la clé : un changement de réglages recharge les textes
     return cached(this.#texts, `${ref}\u0000${JSON.stringify(wanted)}`, () => this.client.text(ref, wanted));
   }
 }

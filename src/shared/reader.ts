@@ -240,7 +240,7 @@ export class Reader {
     void (async () => {
       let next: Load<Passage>;
       try {
-        next = { state: 'ready', value: await this.store.client.text(wanted, this.store.versionsFor(wanted)) };
+        next = { state: 'ready', value: await this.store.text(wanted) };
       } catch (error) {
         next = { state: 'error', message: errorMessage(error) };
       }
@@ -250,8 +250,9 @@ export class Reader {
 
   /** Recharge le passage affiché (versions modifiées). */
   reload(): void {
+    // en cours de chargement aussi (versions changées deux fois de suite : la dernière l'emporte)
     const p = this.passage.peek();
-    if (p?.state === 'ready') this.#load(p.value.ref);
+    if (p !== null && !this.#deferred && this.ref !== '') this.#load(this.ref);
   }
 
   select(ref: string | null): void {

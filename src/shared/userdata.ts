@@ -4,7 +4,7 @@
 import GLib from 'gi://GLib';
 import { type Accessor, createState, type Setter } from 'gnim';
 import * as z from 'zod/mini';
-import { readDataFile, writeDataFile } from './datafile.ts';
+import { DataWriter, readDataFile } from './datafile.ts';
 
 /** Passage mémorisé (référence et son nom hébreu). */
 export interface Place {
@@ -61,21 +61,23 @@ export function toggleBookmark(bookmarks: readonly Place[], place: Place): Place
 export class ReadingStore {
   readonly value: Accessor<ReadingData>;
   readonly #set: Setter<ReadingData>;
-  readonly #file: string;
+  readonly #writer: DataWriter;
 
   constructor(file = readingFile()) {
-    this.#file = file;
+    this.#writer = new DataWriter(file, 'données de lecture');
     [this.value, this.#set] = createState(readReading(file));
   }
 
   #update(patch: Partial<ReadingData>): void {
     const next = { ...this.value.peek(), ...patch };
     this.#set(next);
-    try {
-      writeDataFile(this.#file, next);
-    } catch (error) {
-      console.error(`données de lecture non enregistrées : ${String(error)}`);
-    }
+    // regroupée (chaque navigation modifie historique et onglets), asynchrone
+    this.#writer.schedule(next);
+  }
+
+  /** Écrit tout de suite les modifications en attente. */
+  flush(): void {
+    this.#writer.flush();
   }
 
   visited(place: Place): void {
