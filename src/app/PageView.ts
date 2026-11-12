@@ -3,12 +3,13 @@
 // déplacement en glissant, amud précédent / suivant (qui déplacent l'onglet), agrandissement à tout
 // l'onglet, ouverture dans le navigateur.
 import Adw from 'gi://Adw?version=1';
-import Gdk from 'gi://Gdk?version=4.0';
+import type Gdk from 'gi://Gdk?version=4.0';
 import Gtk from 'gi://Gtk?version=4.0';
 import { type Edition, siblingAmud } from '../shared/api.ts';
 import type { SefariaClient } from '../shared/client.ts';
 import { errorMessage } from '../shared/errors.ts';
 import { asPaintable, CleanPage } from './CleanPage.ts';
+import type { PageImages } from './PageImages.ts';
 
 /** Zoom relatif à la page entière (1 : page entière visible). */
 const ZOOM_MIN = 1;
@@ -39,6 +40,8 @@ export interface PageView {
   readonly widget: Gtk.Widget;
   /** Amud à afficher (null : passage sans page imprimée). */
   setAmud: (amud: string | null) => void;
+  /** Volet fermé : images retirées (seul le cache commun, borné, les garde). */
+  hide: () => void;
   dispose: () => void;
 }
 
@@ -48,6 +51,7 @@ export interface PageView {
  */
 export function pageView(
   client: SefariaClient,
+  images: PageImages,
   options: { navigate: (ref: string) => void; maximized: () => boolean; setMaximized: (on: boolean) => void; close: () => void },
 ): PageView {
   const title = new Adw.WindowTitle({ title: 'Page imprimée' });
@@ -100,7 +104,6 @@ export function pageView(
   let generation = 0;
   let filling = false;
   const pictures: Gtk.Picture[] = [];
-  const images = new Map<string, Gdk.Texture>();
   const cleanPages: InstanceType<typeof CleanPage>[] = [];
 
   const applyZoom = (): void => {
@@ -143,12 +146,11 @@ export function pageView(
     else clean.update(texture, style.dark);
   };
 
-  /** Image chargée (cache de la fenêtre), affichée si la page n'a pas changé entre-temps. */
+  /** Image chargée (cache commun), affichée si la page n'a pas changé entre-temps. */
   const loadImage = (picture: Gtk.Picture, clean: InstanceType<typeof CleanPage> | null, url: string, gen: number): void => {
     void (async () => {
       try {
-        const texture = Gdk.Texture.new_from_bytes(await client.bytes(url));
-        images.set(url, texture);
+        const texture = await images.texture(url);
         if (gen === generation) {
           show(picture, clean, texture);
           applyZoom();
@@ -159,11 +161,15 @@ export function pageView(
     })();
   };
 
-  const showEdition = (): void => {
-    const e = editions[edition.selected];
+  const clearPages = (): void => {
     for (let c = pagesBox.get_first_child(); c !== null; c = pagesBox.get_first_child()) pagesBox.remove(c);
     pictures.length = 0;
     cleanPages.length = 0;
+  };
+
+  const showEdition = (): void => {
+    const e = editions[edition.selected];
+    clearPages();
     if (e === undefined) return;
     browser.sensitive = e.pages.length > 0;
     const gen = generation;
@@ -178,7 +184,7 @@ export function pageView(
       pictures.push(picture);
       pagesBox.append(picture);
       if (e.pages.length > 1) pagesBox.append(new Gtk.Label({ label: page.label, cssClasses: ['caption', 'dim-label'] }));
-      const cached = images.get(page.url);
+      const cached = images.cached(page.url);
       if (cached !== undefined) {
         show(picture, clean, cached);
         continue;
@@ -290,6 +296,12 @@ export function pageView(
       if (amud === current && stack.visibleChildName !== 'error') return;
       current = amud;
       load();
+    },
+    hide: () => {
+      generation += 1;
+      current = null;
+      clearPages();
+      stack.visibleChildName = 'loading';
     },
     dispose: () => style.disconnect(themeId),
   };

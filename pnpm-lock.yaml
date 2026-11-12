@@ -179,6 +179,9 @@ importers:
 
   .:
     dependencies:
+      '@girs/gdkpixbuf-2.0':
+        specifier: 5.5.0
+        version: 5.5.0
       gnim:
         specifier: ^1.9.1
         version: 1.9.1
@@ -404,6 +407,9 @@ packages:
 
   '@girs/gdk-4.0@5.6.0':
     resolution: {integrity: sha512-D38M3vRYQCZ8WWjHe4azPTJlSpwn8zkgLs9jEOGvy0jvgc2F6+USLo1y7spT4Isant+VkkzBnLDbKII75D2tFw==}
+
+  '@girs/gdkpixbuf-2.0@5.5.0':
+    resolution: {integrity: sha512-o36S7oxry1nApEDWNT6qAu+wie1bvL0HsR6DuqXH8RDO0vGKLCcev5/K1Vgqf6CLRv6krL4v9gFKLViWQjh2lA==}
 
   '@girs/gdkpixbuf-2.0@5.6.0':
     resolution: {integrity: sha512-noH1B0rohtggl/4TMn3asaG9YH1zIynCbEaMsQqvFaVK3+oc355D3CWKV1EQP3njUElDFdpG4mJ+s4OZvFSL5w==}
@@ -881,6 +887,14 @@ snapshots:
       '@girs/harfbuzz-0.0': 5.6.0
       '@girs/pango-1.0': 5.5.0
       '@girs/pangocairo-1.0': 5.5.0
+
+  '@girs/gdkpixbuf-2.0@5.5.0':
+    dependencies:
+      '@girs/gio-2.0': 5.5.0
+      '@girs/gjs': 5.5.0
+      '@girs/glib-2.0': 5.5.0
+      '@girs/gmodule-2.0': 5.6.0
+      '@girs/gobject-2.0': 5.5.0
 
   '@girs/gdkpixbuf-2.0@5.6.0':
     dependencies:

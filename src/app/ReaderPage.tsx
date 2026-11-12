@@ -11,6 +11,7 @@ import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
 import { linksPanel } from './LinksPanel.ts';
+import { pageImages } from './PageImages.ts';
 import { type PageView, pageView } from './PageView.ts';
 import { attachCompletion } from './RefCompletion.ts';
 import type { Tabs } from './Tabs.ts';
@@ -295,7 +296,7 @@ function withPagePane(text: Gtk.Widget, reader: Reader, tabs: Tabs, narrow: Acce
   const sync = (): void => {
     const on = reader.pageOn.peek();
     if (on && pane === null) {
-      pane = pageView(tabs.store.client, {
+      pane = pageView(tabs.store.client, pageImages(tabs.store.client), {
         navigate: (ref) => reader.open(ref),
         maximized: () => reader.pageMax.peek(),
         setMaximized: (m) => reader.setPageMax(m),
@@ -308,6 +309,7 @@ function withPagePane(text: Gtk.Widget, reader: Reader, tabs: Tabs, narrow: Acce
     if (pane !== null) {
       pane.widget.visible = on;
       if (on) pane.setAmud(amud());
+      else pane.hide();
     }
     const full = on && (reader.pageMax.peek() || narrow.peek());
     text.visible = !full;
