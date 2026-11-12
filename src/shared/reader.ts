@@ -232,10 +232,11 @@ export class Reader {
     this.#wanted = wanted;
     this.#setSelected(null);
     // traduction de l'ancien passage : abandonnée (la nouvelle suit le chargement)
+    // passage d'abord en chargement : la fin de la traduction ne fait pas remettre en page l'ancien
+    this.#setPassage({ state: 'loading' });
     this.#aiCancel?.cancel();
     this.#aiCancel = null;
     if (this.ai.peek().state !== 'off') this.#setAi({ state: 'off' });
-    this.#setPassage({ state: 'loading' });
     void (async () => {
       let next: Load<Passage>;
       try {

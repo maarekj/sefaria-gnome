@@ -83,8 +83,12 @@ app.set_accels_for_action('app.text-smaller', ['<Control>minus', '<Control>KP_Su
 app.set_accels_for_action('app.text-reset', ['<Control>0', '<Control>KP_0']);
 /** feuille de style des tailles, régénérée à chaque changement d'échelle */
 const scaleCssProvider = new Gtk.CssProvider();
+/** échelle appliquée : recharger la feuille de style remet en page tous les onglets */
+let appliedScale = Number.NaN;
 const applyScale = (): void => {
   const scale = settings.value.peek().textScale;
+  if (scale === appliedScale) return;
+  appliedScale = scale;
   scaleCssProvider.load_from_string(scaleCss(scale));
   textLarger.enabled = canGrow(scale);
   textSmaller.enabled = canShrink(scale);

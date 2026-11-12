@@ -6,9 +6,10 @@ import Pango from 'gi://Pango';
 import { type Accessor, createComputed, createState, onCleanup } from 'gnim';
 import { isAmud, type Passage, type Segment, segmentRef } from '../shared/api.ts';
 import { chapterTitle, passageItems } from '../shared/chapters.ts';
+import { Lru } from '../shared/lru.ts';
 import { sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
-import type { Reader } from '../shared/reader.ts';
+import type { AiState, Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
 import { linksPanel } from './LinksPanel.ts';
 import { pageImages } from './PageImages.ts';
@@ -22,6 +23,17 @@ export const TWO_COLUMNS_MIN_WIDTH = 700;
 
 /** Page affichée selon l'état du passage. */
 export const readerScreen = (p: ReturnType<Reader['passage']>): 'empty' | 'loading' | 'error' | 'text' => (p === null ? 'empty' : p.state === 'ready' ? 'text' : p.state);
+
+/** Balisage Pango des textes déjà affichés (changement de mode, retour à un passage : pas recalculé). */
+const markups = new Lru<string, string>(4000);
+const markupOf = (html: string): string => {
+  let m = markups.get(html);
+  if (m === undefined) {
+    m = sefariaMarkup(html);
+    markups.set(html, m);
+  }
+  return m;
+};
 
 /** Libellé d'un texte ; l'hébreu est aligné à droite (direction RTL détectée par Pango). */
 function textLabel(markup: string, hebrew: boolean): Gtk.Label {
@@ -46,9 +58,9 @@ function textLabel(markup: string, hebrew: boolean): Gtk.Label {
 function segmentColumns(s: Segment, number: string): Gtk.Widget {
   const row = new Gtk.Box({ homogeneous: true, spacing: 24, cssClasses: ['segment', 'two-columns'] });
   const en = new Gtk.Box({ valign: Gtk.Align.START });
-  if (s.en !== '') en.append(textLabel(sefariaMarkup(s.en), false));
+  if (s.en !== '') en.append(textLabel(markupOf(s.en), false));
   const he = new Gtk.Box({ spacing: 12, valign: Gtk.Align.START });
-  he.append(s.he === '' ? new Gtk.Box({ hexpand: true }) : textLabel(sefariaMarkup(s.he), true));
+  he.append(s.he === '' ? new Gtk.Box({ hexpand: true }) : textLabel(markupOf(s.he), true));
   he.append(new Gtk.Label({ label: number, valign: Gtk.Align.START, xalign: 1, cssClasses: ['segment-number', 'dim-label'] }));
   row.append(he);
   row.append(en);
@@ -72,8 +84,8 @@ function segmentRow(s: Segment, display: Display, label: string): Gtk.Widget {
   const row = new Gtk.Box({ spacing: 12, cssClasses: ['segment'] });
   const number = new Gtk.Label({ label, valign: Gtk.Align.START, xalign: display === 'hebrew' ? 1 : 0, cssClasses: ['segment-number', 'dim-label'] });
   const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true });
-  if (s.he !== '' && display !== 'translation') texts.append(textLabel(sefariaMarkup(s.he), true));
-  if (s.en !== '' && display !== 'hebrew') texts.append(textLabel(sefariaMarkup(s.en), false));
+  if (s.he !== '' && display !== 'translation') texts.append(textLabel(markupOf(s.he), true));
+  if (s.en !== '' && display !== 'hebrew') texts.append(textLabel(markupOf(s.en), false));
   if (display !== 'hebrew') row.append(number);
   row.append(texts);
   if (display === 'hebrew') row.append(number);
@@ -101,9 +113,26 @@ function clickable(widget: Gtk.Widget, select: () => void): Gtk.Widget {
   return widget;
 }
 
-/** `ai` : traductions par IA (numéro → texte) remplaçant celles de Sefaria, et leur auteur. */
-function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) => void, ai: { values: Readonly<Record<string, string>>; label: string } | null): SegmentWidgets {
+/**
+ * Segments construits d'un coup au premier affichage, puis un lot par image (la mise en page d'un
+ * segment coûte ≈ 2 ms : 176 versets d'un coup figeaient l'interface ≈ 0,4 s).
+ */
+export const FILL_FIRST = 15;
+export const FILL_BATCH = 12;
+
+/** Remplissage en cours d'une boîte (le suivant l'annule). */
+const filling = new WeakMap<Gtk.Box, number>();
+
+/**
+ * Remplit `box` avec le passage ; `ai` : traductions par IA (numéro → texte) remplaçant celles de
+ * Sefaria, et leur auteur. Les premiers segments sont construits tout de suite, les suivants par
+ * lots en tâche de fond (`progress` après chacun) : un long passage ne fige pas l'interface.
+ */
+export function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) => void, ai: { values: Readonly<Record<string, string>>; label: string } | null, progress?: () => void): SegmentWidgets {
   const widgets: SegmentWidgets = new Map();
+  const pending = filling.get(box);
+  if (pending !== undefined) GLib.source_remove(pending);
+  filling.delete(box);
   for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
   const { display } = layout;
   // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
@@ -113,19 +142,43 @@ function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: string) =>
   // segment non traduit par l'IA : rien plutôt que le texte de Sefaria (pas de mélange sous la mention « IA »)
   const segs = ai === null ? p.segments : p.segments.map((s) => ({ ...s, en: ai.values[s.label] ?? '' }));
   const visible = segs.filter((s) => !(shown === 'hebrew' && s.he === '') && !(shown === 'translation' && s.en === ''));
-  for (const item of passageItems(visible, p.multiChapter)) {
+  const items = passageItems(visible, p.multiChapter);
+  const build = (item: (typeof items)[number]): void => {
     if (item.kind === 'chapter') {
       const heading = chapterHeading(item.chapter, shown, layout.columns && shown === 'both');
       if (heading !== null) box.append(heading);
-      continue;
+      return;
     }
     const ref = segmentRef(p, item.segment.label);
     const w = clickable(layout.columns && shown === 'both' ? segmentColumns(item.segment, item.number) : segmentRow(item.segment, shown, item.number), () => select(ref));
     widgets.set(ref, w);
     box.append(w);
+  };
+  const finish = (): void => {
+    const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : ai === null ? p.enVersion : `Traduction par IA : ${ai.label}`].filter((v) => v !== '').join(' · ');
+    if (versions !== '') box.append(new Gtk.Label({ label: versions, wrap: true, marginTop: 18, cssClasses: ['caption', 'dim-label'] }));
+  };
+  let next = Math.min(FILL_FIRST, items.length);
+  for (const item of items.slice(0, next)) build(item);
+  if (next >= items.length) {
+    finish();
+    return widgets;
   }
-  const versions = [shown === 'translation' ? '' : p.heVersion, shown === 'hebrew' ? '' : ai === null ? p.enVersion : `Traduction par IA : ${ai.label}`].filter((v) => v !== '').join(' · ');
-  if (versions !== '') box.append(new Gtk.Label({ label: versions, wrap: true, marginTop: 18, cssClasses: ['caption', 'dim-label'] }));
+  // un lot toutes les 16 ms (≈ une image) : un rappel inactif en enchaînerait plusieurs avant la mise
+  // en page ; un rappel d'image (tick) ne viendrait pas dans un onglet caché
+  const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT_IDLE, 16, () => {
+    const end = Math.min(items.length, next + FILL_BATCH);
+    for (const item of items.slice(next, end)) build(item);
+    next = end;
+    const done = next >= items.length;
+    if (done) {
+      filling.delete(box);
+      finish();
+    }
+    progress?.();
+    return done ? GLib.SOURCE_REMOVE : GLib.SOURCE_CONTINUE;
+  });
+  filling.set(box, id);
   return widgets;
 }
 
@@ -175,7 +228,10 @@ export function ReaderView({
   const select = (ref: string): void => reader.select(ref);
   const render = (box: Gtk.Box, p: Passage): void => {
     const a = reader.ai.peek();
-    segments = fill(box, p, layout(), select, a.state === 'ready' && a.ref === p.ref ? a : null);
+    segments = fill(box, p, layout(), select, a.state === 'ready' && a.ref === p.ref ? a : null, () => {
+      // segment sélectionné construit dans un lot suivant
+      if (highlighted === undefined && reader.selected.peek() !== null) highlight();
+    });
     highlight();
   };
   const ready = (): Passage | null => {
@@ -249,10 +305,18 @@ export function ReaderView({
               marginStart={12}
               marginEnd={12}
               $={(self: Gtk.Box) => {
+                // traduction par IA : seulement quand celle affichée change (pas pour « en cours », ni « erreur »)
+                const shownAi = (): AiState | null => {
+                  const a = reader.ai.peek();
+                  const p = ready();
+                  return a.state === 'ready' && p !== null && a.ref === p.ref ? a : null;
+                };
+                let lastAi = shownAi();
                 onCleanup(
                   reader.passage.subscribe(() => {
                     const p = ready();
                     if (p === null) return;
+                    lastAi = shownAi();
                     render(self, p);
                     scroller?.vadjustment.set_value(0);
                   }),
@@ -264,7 +328,15 @@ export function ReaderView({
                 };
                 onCleanup(columns.subscribe(relayout));
                 onCleanup(display.subscribe(relayout));
-                onCleanup(reader.ai.subscribe(relayout));
+                // traduction par IA : seulement quand celle affichée change (pas pour « en cours », ni « erreur »)
+                onCleanup(
+                  reader.ai.subscribe(() => {
+                    const a = shownAi();
+                    if (a === lastAi) return;
+                    lastAi = a;
+                    relayout();
+                  }),
+                );
                 // segment sélectionné : mis en évidence
                 onCleanup(reader.selected.subscribe(highlight));
               }}
