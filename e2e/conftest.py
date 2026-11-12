@@ -89,6 +89,11 @@ class Fake:
         with urllib.request.urlopen(f'{self.url}/__test/requests', timeout=2) as r:
             return json.loads(r.read())
 
+    def fail(self, prefix: str, count: int = 1) -> None:
+        """Panne simulée (502, page HTML) des `count` prochaines requêtes commençant par `prefix`."""
+        from urllib.parse import urlencode
+        urllib.request.urlopen(f'{self.url}/__test/fail?{urlencode({"prefix": prefix, "count": count})}', timeout=2).read()
+
     def stop(self) -> None:
         if self.proc.poll() is None:
             self.proc.terminate()

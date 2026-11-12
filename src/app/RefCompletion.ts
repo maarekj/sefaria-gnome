@@ -7,6 +7,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Pango from 'gi://Pango';
 import type { Suggestion } from '../shared/api.ts';
 import type { SefariaClient } from '../shared/client.ts';
+import { clearChildren } from './widgets.ts';
 
 /** Pause de frappe avant la requête (ms). */
 export const DEBOUNCE_MS = 250;
@@ -38,7 +39,7 @@ export function attachCompletion(entry: Gtk.SearchEntry, client: SefariaClient, 
   };
   const show = (items: readonly Suggestion[]): void => {
     suggestions = items;
-    for (let c = list.get_first_child(); c !== null; c = list.get_first_child()) list.remove(c);
+    clearChildren(list);
     for (const s of items) list.append(new Gtk.Label({ label: s.label, xalign: 0, marginTop: 4, marginBottom: 4, marginStart: 8, marginEnd: 8, ellipsize: Pango.EllipsizeMode.END }));
     if (items.length === 0) hide();
     else popover.popup();

@@ -2,12 +2,11 @@
 import Adw from 'gi://Adw?version=1';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
-import Pango from 'gi://Pango';
 import { type Accessor, createComputed, createState, onCleanup } from 'gnim';
 import { isAmud, type Passage, type Segment, segmentRef } from '../shared/api.ts';
 import { chapterTitle, passageItems } from '../shared/chapters.ts';
 import { Lru } from '../shared/lru.ts';
-import { sefariaMarkup, withDirection } from '../shared/markup.ts';
+import { sefariaMarkup } from '../shared/markup.ts';
 import type { Display, SettingsStore } from '../shared/settings.ts';
 import type { AiState, Reader } from '../shared/reader.ts';
 import type { ReadingStore } from '../shared/userdata.ts';
@@ -17,6 +16,7 @@ import { type PageView, pageView } from './PageView.ts';
 import { attachCompletion } from './RefCompletion.ts';
 import type { Tabs } from './Tabs.ts';
 import { versionsMenu } from './VersionsMenu.ts';
+import { clearChildren, textLabel } from './widgets.ts';
 
 /** Largeur de texte minimale (px) pour afficher deux colonnes ; en dessous : empilé. */
 export const TWO_COLUMNS_MIN_WIDTH = 700;
@@ -35,32 +35,17 @@ const markupOf = (html: string): string => {
   return m;
 };
 
-/** Libellé d'un texte ; l'hébreu est aligné à droite (direction RTL détectée par Pango). */
-function textLabel(markup: string, hebrew: boolean): Gtk.Label {
-  const label = new Gtk.Label({
-    useMarkup: true,
-    label: withDirection(markup, hebrew),
-    wrap: true,
-    wrapMode: Pango.WrapMode.WORD_CHAR,
-    selectable: true,
-    xalign: hebrew ? 1 : 0,
-    // Pango détecte la direction de chaque paragraphe et inverse alors LEFT / RIGHT : LEFT signifie
-    // « côté du début de ligne », donc à droite pour l'hébreu (RIGHT le renverrait à gauche)
-    justify: Gtk.Justification.LEFT,
-    hexpand: true,
-    cssClasses: [hebrew ? 'hebrew' : 'translation'],
-  });
-  return label;
-}
+/** Libellé d'un texte lu (sélectionnable, occupe la largeur). */
+const readLabel = (markup: string, hebrew: boolean): Gtk.Label => textLabel(markup, hebrew, { cssClasses: [hebrew ? 'hebrew' : 'translation'], hexpand: true });
 
 /** Segment en deux colonnes, face à face : hébreu à gauche (aligné à droite), numéro au centre,
  * traduction à droite (alignée à gauche). */
 function segmentColumns(s: Segment, number: string): Gtk.Widget {
   const row = new Gtk.Box({ homogeneous: true, spacing: 24, cssClasses: ['segment', 'two-columns'] });
   const en = new Gtk.Box({ valign: Gtk.Align.START });
-  if (s.en !== '') en.append(textLabel(markupOf(s.en), false));
+  if (s.en !== '') en.append(readLabel(markupOf(s.en), false));
   const he = new Gtk.Box({ spacing: 12, valign: Gtk.Align.START });
-  he.append(s.he === '' ? new Gtk.Box({ hexpand: true }) : textLabel(markupOf(s.he), true));
+  he.append(s.he === '' ? new Gtk.Box({ hexpand: true }) : readLabel(markupOf(s.he), true));
   he.append(new Gtk.Label({ label: number, valign: Gtk.Align.START, xalign: 1, cssClasses: ['segment-number', 'dim-label'] }));
   row.append(he);
   row.append(en);
@@ -84,8 +69,8 @@ function segmentRow(s: Segment, display: Display, label: string): Gtk.Widget {
   const row = new Gtk.Box({ spacing: 12, cssClasses: ['segment'] });
   const number = new Gtk.Label({ label, valign: Gtk.Align.START, xalign: display === 'hebrew' ? 1 : 0, cssClasses: ['segment-number', 'dim-label'] });
   const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true });
-  if (s.he !== '' && display !== 'translation') texts.append(textLabel(markupOf(s.he), true));
-  if (s.en !== '' && display !== 'hebrew') texts.append(textLabel(markupOf(s.en), false));
+  if (s.he !== '' && display !== 'translation') texts.append(readLabel(markupOf(s.he), true));
+  if (s.en !== '' && display !== 'hebrew') texts.append(readLabel(markupOf(s.en), false));
   if (display !== 'hebrew') row.append(number);
   row.append(texts);
   if (display === 'hebrew') row.append(number);
@@ -133,7 +118,7 @@ export function fill(box: Gtk.Box, p: Passage, layout: Layout, select: (ref: str
   const pending = filling.get(box);
   if (pending !== undefined) GLib.source_remove(pending);
   filling.delete(box);
-  for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
+  clearChildren(box);
   const { display } = layout;
   // texte demandé absent (ex. pas de traduction) : l'autre est affiché plutôt qu'une page vide
   const hasTranslation = ai !== null || p.enVersion !== '';

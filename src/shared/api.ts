@@ -50,9 +50,6 @@ export function parseIndex(raw: unknown): LibraryNode[] {
   });
 }
 
-/** Clé stable d'un nœud (listes ordonnées). */
-export const nodeKey = (n: LibraryNode): string => (n.kind === 'category' ? `c:${n.name}` : `b:${n.title}`);
-
 // ------------------------------------------------------------------ textes (/api/v3/texts/{ref})
 
 /** Contenu d'une version : chaîne, ou tableaux imbriqués selon la profondeur du texte. */

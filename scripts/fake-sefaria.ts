@@ -1,6 +1,7 @@
 // Faux serveur Sefaria (captures, tests de bout en bout) : sert la table des matières et les
 // passages de e2e/fixtures/, sans accès réseau.
 // Usage : node scripts/fake-sefaria.ts [--port 4890] [--delay ms]
+//   GET /__test/fail?prefix=/api/shape/&count=1 : panne simulée (502 HTML) des prochaines requêtes ;
 //   GET /api/index, GET /api/v3/texts/{ref} : comme l'API réelle (un titre de livre renvoie sa
 //   première section via `firstAvailableSectionRef`, une référence inconnue { error }) ;
 //   GET /api/shape/{titre}, /api/v2/raw/index/{titre} : table des matières (e2e/fixtures/books.json) ;
@@ -66,13 +67,34 @@ function respond(res: http.ServerResponse, status: number, body: unknown): void 
   res.end(JSON.stringify(body));
 }
 
+/** pannes simulées (GET /__test/fail) */
+const failures: { prefix: string; count: number }[] = [];
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname === '/__test/requests') {
     respond(res, 200, requests);
     return;
   }
+  // panne simulée : les `count` prochaines requêtes commençant par `prefix` (502, page HTML)
+  if (url.pathname === '/__test/fail') {
+    const count = Number(url.searchParams.get('count') ?? '1');
+    if (!Number.isInteger(count) || count < 1) {
+      respond(res, 400, { error: 'count : entier positif attendu' });
+      return;
+    }
+    failures.push({ prefix: url.searchParams.get('prefix') ?? '', count });
+    respond(res, 200, { ok: true });
+    return;
+  }
   requests.push(`${url.pathname}${url.search}`);
+  const failure = failures.find((f) => f.count > 0 && url.pathname.startsWith(f.prefix));
+  if (failure !== undefined) {
+    failure.count -= 1;
+    res.writeHead(502, { 'content-type': 'text/html' });
+    res.end('<html><body>Bad Gateway</body></html>');
+    return;
+  }
   if (req.method === 'POST' && url.pathname === '/api/search-wrapper') {
     let body = '';
     req.on('data', (c: Buffer) => {

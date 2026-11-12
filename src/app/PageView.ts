@@ -10,6 +10,7 @@ import type { SefariaClient } from '../shared/client.ts';
 import { errorMessage } from '../shared/errors.ts';
 import { asPaintable, CleanPage } from './CleanPage.ts';
 import type { PageImages } from './PageImages.ts';
+import { clearChildren, spinner } from './widgets.ts';
 
 /** Zoom relatif à la page entière (1 : page entière visible). */
 const ZOOM_MIN = 1;
@@ -82,7 +83,7 @@ export function pageView(
   const pagesBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12, halign: Gtk.Align.CENTER, marginTop: 8, marginBottom: 8 });
   const scroller = new Gtk.ScrolledWindow({ child: pagesBox, hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true });
   const stack = new Gtk.Stack();
-  stack.add_named(new Adw.Spinner({ widthRequest: 32, heightRequest: 32, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER }), 'loading');
+  stack.add_named(spinner(), 'loading');
   const error = new Adw.StatusPage({ iconName: 'image-missing-symbolic', title: 'Page indisponible' });
   stack.add_named(error, 'error');
   stack.add_named(scroller, 'pages');
@@ -162,7 +163,7 @@ export function pageView(
   };
 
   const clearPages = (): void => {
-    for (let c = pagesBox.get_first_child(); c !== null; c = pagesBox.get_first_child()) pagesBox.remove(c);
+    clearChildren(pagesBox);
     pictures.length = 0;
     cleanPages.length = 0;
   };

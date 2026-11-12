@@ -2,12 +2,12 @@
 // expression exacte, filtre par catégorie, résultats par pages ; un résultat s'ouvre dans un nouvel onglet.
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
-import Pango from 'gi://Pango';
 import type { SearchHit, SearchMode, SearchQuery } from '../shared/api.ts';
 import { sectionOf } from '../shared/api.ts';
 import { errorMessage } from '../shared/errors.ts';
-import { sefariaMarkup, withDirection } from '../shared/markup.ts';
+import { sefariaMarkup } from '../shared/markup.ts';
 import type { Tabs } from './Tabs.ts';
+import { clearChildren, spinner, textLabel } from './widgets.ts';
 
 /** Résultats par page. */
 const PAGE = 20;
@@ -20,17 +20,7 @@ function hitRow(hit: SearchHit): Gtk.ListBoxRow {
   box.append(head);
   if (hit.category !== '') box.append(new Gtk.Label({ label: hit.category, xalign: 0, wrap: true, cssClasses: ['caption', 'dim-label'] }));
   for (const s of hit.snippets) {
-    box.append(
-      new Gtk.Label({
-        useMarkup: true,
-        label: withDirection(sefariaMarkup(s), hit.hebrew),
-        wrap: true,
-        wrapMode: Pango.WrapMode.WORD_CHAR,
-        xalign: hit.hebrew ? 1 : 0,
-        justify: Gtk.Justification.LEFT,
-        cssClasses: [hit.hebrew ? 'search-hebrew' : 'search-text'],
-      }),
-    );
+    box.append(textLabel(sefariaMarkup(s), hit.hebrew, { cssClasses: [hit.hebrew ? 'search-hebrew' : 'search-text'], selectable: false }));
   }
   return new Gtk.ListBoxRow({ child: box, activatable: true });
 }
@@ -61,7 +51,7 @@ export function openSearch(parent: Gtk.Widget, tabs: Tabs): void {
   const empty = new Adw.StatusPage({ iconName: 'system-search-symbolic', title: 'Rechercher dans la bibliothèque', description: 'Entrée lance la recherche.' });
   const stack = new Gtk.Stack({ vexpand: true });
   stack.add_named(empty, 'empty');
-  stack.add_named(new Adw.Spinner({ widthRequest: 32, heightRequest: 32, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER }), 'loading');
+  stack.add_named(spinner(), 'loading');
   stack.add_named(new Gtk.ScrolledWindow({ hscrollbarPolicy: Gtk.PolicyType.NEVER, child: column }), 'results');
   const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
   content.append(options);
@@ -89,7 +79,7 @@ export function openSearch(parent: Gtk.Widget, tabs: Tabs): void {
       from = 0;
       hits = [];
       seen = new Set();
-      for (let c = list.get_first_child(); c !== null; c = list.get_first_child()) list.remove(c);
+      clearChildren(list);
       stack.visibleChildName = 'loading';
       status.label = '';
     }

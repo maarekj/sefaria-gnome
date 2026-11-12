@@ -4,7 +4,7 @@ import { type Accessor, createState, type Setter } from 'gnim';
 import type { Passage, VersionInfo } from './api.ts';
 import { errorMessage } from './errors.ts';
 import type { Load, Store } from './store.ts';
-import { translate } from './translate.ts';
+import { TOOL_NAMES, translate } from './translate.ts';
 
 /** Traduction par IA de la section affichée. */
 export type AiState =
@@ -114,7 +114,7 @@ export class Reader {
     this.#aiCancel?.cancel();
     const cancellable = new Gio.Cancellable();
     this.#aiCancel = cancellable;
-    const tool = o.tool === 'claude' ? 'Claude Code' : 'opencode';
+    const tool = TOOL_NAMES[o.tool];
     this.#setAi({ state: 'loading', tool });
     const ref = p.value.ref;
     void (async () => {

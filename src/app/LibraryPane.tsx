@@ -9,6 +9,7 @@ import { errorMessage } from '../shared/errors.ts';
 import type { SettingsStore } from '../shared/settings.ts';
 import type { Place, ReadingStore } from '../shared/userdata.ts';
 import type { Tabs } from './Tabs.ts';
+import { clearChildren, scrolled, spinner } from './widgets.ts';
 
 /** Noms français des types de section courants (sinon celui de Sefaria). */
 const SECTION_NAMES: Readonly<Record<string, string>> = { Chapter: 'Chapitres', Daf: 'Dapim', Siman: 'Simanim', Perek: 'Chapitres', Parasha: 'Parachiot', Psalm: 'Psaumes' };
@@ -27,8 +28,6 @@ export function whileMapped(widget: Gtk.Widget, subscribe: () => () => void): vo
     unsubscribe = null;
   });
 }
-
-const scrolled = (child: Gtk.Widget): Gtk.ScrolledWindow => new Gtk.ScrolledWindow({ hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true, child });
 
 /** Ligne activable (catégorie, livre ou partie) ; `more` : flèche vers une page suivante. */
 function row(title: string, subtitle: string, more: boolean, activate: () => void): Adw.ActionRow {
@@ -135,7 +134,7 @@ function nodeActivated(n: TocNode, tabs: Tabs, push: (p: Adw.NavigationPage) => 
 /** Page d'un livre : chargement asynchrone de sa table des matières. */
 function bookPage(book: Book, tabs: Tabs, push: (p: Adw.NavigationPage) => void): Adw.NavigationPage {
   const stack = new Gtk.Stack();
-  stack.add_named(new Adw.Spinner({ widthRequest: 32, heightRequest: 32, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER }), 'loading');
+  stack.add_named(spinner(), 'loading');
   const p = page(book.title, stack);
   const load = (): void => {
     stack.visibleChildName = 'loading';
@@ -167,7 +166,7 @@ function placesPage(title: string, empty: string, places: () => readonly Place[]
   stack.add_named(scrolled(list), 'list');
   stack.add_named(new Adw.StatusPage({ iconName: 'starred-symbolic', title: empty }), 'empty');
   const fillList = (): void => {
-    for (let c = list.get_first_child(); c !== null; c = list.get_first_child()) list.remove(c);
+    clearChildren(list);
     for (const p of places()) list.append(row(p.ref, p.heRef, false, () => tabs.open(p.ref)));
     stack.visibleChildName = places().length === 0 ? 'empty' : 'list';
   };
@@ -214,8 +213,8 @@ function todayPage(tabs: Tabs, settings: SettingsStore, push: (p: Adw.Navigation
   const load = (): void => {
     generation += 1;
     const gen = generation;
-    for (let c = stack.get_first_child(); c !== null; c = stack.get_first_child()) stack.remove(c);
-    stack.add_named(new Adw.Spinner({ widthRequest: 32, heightRequest: 32, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER }), 'loading');
+    clearChildren(stack);
+    stack.add_named(spinner(), 'loading');
     stack.visibleChildName = 'loading';
     void (async () => {
       try {

@@ -1,5 +1,6 @@
 """Parcours principaux : bibliothèque, lecture, navigation entre sections, référence saisie."""
 
+import subprocess
 import time
 
 from conftest import ROOT, Atspi, wait_until, xdotool
@@ -429,3 +430,48 @@ def test_page_imprimee_zoom_molette_et_glisser(run_app):
         time.sleep(0.03)
     xdotool('mouseup', '1')
     wait_until(lambda: image.get_extents(Atspi.CoordType.WINDOW).y < before.y - 50, 5, 'image déplacée')
+
+
+def test_panne_puis_reessayer(run_app):
+    fake, app = run_app()
+    # table des matières en panne (502 d'un mandataire) : message lisible, puis « Réessayer »
+    fake.fail('/api/shape/Berakhot')
+    app.point(app.find('label', 'Talmud'))
+    app.point(app.find('label', 'Bavli'))
+    app.point(app.find('label', 'Seder Zeraim'))
+    app.point(app.find('label', 'Berakhot'))
+    assert app.text_visible('Table des matières indisponible')
+    assert app.has('label', contains='HTTP 502')
+    app.click('button', 'Réessayer')
+    assert app.text_visible('Dapim')
+
+
+def test_traduction_ia_annulee(run_app, monkeypatch):
+    # outil lent : annulé depuis le bandeau, puis par la fermeture de l'onglet (processus arrêté)
+    monkeypatch.setenv('FAKE_AI_DELAY', '30')
+    fake, app = run_app(ref='Genesis 1')
+    app.text_visible('When God began to create heaven and earth')
+    app.key('ctrl+comma')
+    app.point(app.find(None, 'Outil'))
+    app.point(app.find(None, 'Claude Code'))
+    app.key('Escape')
+    # outil de ce dossier seulement (d'autres agents peuvent lancer leurs e2e en parallèle)
+    running = lambda: subprocess.run(['pgrep', '-f', str(ROOT / 'e2e' / 'fake_ai.py')], capture_output=True).returncode == 0
+    app.point(app.find(None, 'Aa'))
+    app.click('toggle button', 'Traduire en français')
+    assert app.text_visible('Traduction par Claude Code en cours')
+    wait_until(running, 5, 'outil lancé')
+    app.key('Escape')
+    app.click('button', 'Annuler')
+    wait_until(lambda: not running(), 5, 'outil arrêté (Annuler)')
+    assert app.text_visible('When God began to create heaven and earth')
+    # nouvel onglet traduit, fermé pendant la traduction
+    app.key('ctrl+t')
+    app.go_to('Genesis 2')
+    app.text_visible('The heaven and the earth were finished')
+    app.point(app.find(None, 'Aa'))
+    app.click('toggle button', 'Traduire en français')
+    wait_until(running, 5, 'outil relancé')
+    app.key('Escape')
+    app.key('ctrl+w')
+    wait_until(lambda: not running(), 5, 'outil arrêté (onglet fermé)')

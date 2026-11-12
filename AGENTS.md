@@ -13,7 +13,8 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
   (`settings.ts`), onglets à rouvrir, historique et signets (`userdata.ts`, `$XDG_DATA_HOME`), HTML de Sefaria → balisage Pango (`markup.ts` : notes de bas de page retirées).
 - `src/app/` : application `Adw.Application` en TSX avec gnim (`gnim/gtk4`) : bibliothèque et tables
   des matières en barre latérale (`LibraryPane.tsx`), onglets de lecture (`Tabs.ts`), barre d'en-tête
-  de l'onglet courant et vue d'un onglet (`ReaderPage.tsx`), panneau des liens (`LinksPanel.ts`).
+  de l'onglet courant et vue d'un onglet (`ReaderPage.tsx`), panneau des liens (`LinksPanel.ts`) ;
+  widgets communs (`widgets.ts` : `textLabel` hébreu / traduction, `spinner`, `clearChildren`).
 - `data/fonts/` : polices livrées (Taamey Frank CLM pour l'hébreu, GPL + exception de police),
   chargées au démarrage par `src/app/fonts.ts` (Pango) : ni installation ni police système requises.
 - `scripts/` : outillage Node 24 (build esbuild, types gnim, tests, captures, faux serveur, installation).
@@ -32,7 +33,7 @@ Sefaria (https://developers.sefaria.org). Même pile technique qu'opencode-gnome
   À lancer avant de fusionner un changement d'interface ; ajouter le scénario de chaque fonctionnalité.
   Un bouton à icône sans infobulle est introuvable : toujours lui donner une infobulle.
 - `pnpm fake-sefaria [--port 4890] [--delay ms]` : faux serveur (bibliothèque et passages de
-  `e2e/fixtures/`, `GET /__test/requests` : requêtes reçues). Lancer l'app avec `SEFARIA_GNOME_URL`.
+  `e2e/fixtures/`, `GET /__test/requests` : requêtes reçues, `GET /__test/fail?prefix=…` : panne simulée ; e2e : `fake.fail(prefix)`). Lancer l'app avec `SEFARIA_GNOME_URL`.
   Nouveau passage de test : l'ajouter à `e2e/fixtures/texts.json` (réponse réelle de l'API, réduite).
 - `pnpm screenshot [sortie.png] [--ref "Genesis 1"] [--real]` : lance l'app sur un écran virtuel
   (Xvfb), branchée sur le faux Sefaria (`--real` : vrai serveur), et en fait une capture.

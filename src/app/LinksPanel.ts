@@ -2,37 +2,22 @@
 // texte des sources d'un auteur, avec ouverture dans le lecteur.
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
-import Pango from 'gi://Pango';
 import Gio from 'gi://Gio';
 import { type LinkBook, type LinkCategory, type Passage, segmentRef } from '../shared/api.ts';
 import { languageLabel } from '../shared/aiprompt.ts';
-import { translate, translateCommentaries } from '../shared/translate.ts';
+import { TOOL_NAMES, translate, translateCommentaries } from '../shared/translate.ts';
 import { errorMessage } from '../shared/errors.ts';
 import { escapeMarkup, sefariaMarkup, withDirection } from '../shared/markup.ts';
 import type { Reader } from '../shared/reader.ts';
+import { clearChildren, scrolled, spinner, textLabel } from './widgets.ts';
+
+const linkLabel = (markup: string, hebrew: boolean): Gtk.Label => textLabel(markup, hebrew, { cssClasses: [hebrew ? 'hebrew' : 'translation', 'link-text'] });
 
 /** Ouverture d'une source (nouvel onglet). */
 export type OpenSource = (ref: string) => void;
 
 /** Sources dont le texte est chargé d'un coup ; au-delà, à la demande. */
 const PAGE = 8;
-
-const scrolled = (child: Gtk.Widget): Gtk.ScrolledWindow => new Gtk.ScrolledWindow({ hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true, child });
-const spinner = (): Gtk.Widget => new Adw.Spinner({ widthRequest: 24, heightRequest: 24, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER, marginTop: 24 });
-
-function textLabel(markup: string, hebrew: boolean): Gtk.Label {
-  return new Gtk.Label({
-    useMarkup: true,
-    label: withDirection(markup, hebrew),
-    wrap: true,
-    wrapMode: Pango.WrapMode.WORD_CHAR,
-    selectable: true,
-    xalign: hebrew ? 1 : 0,
-    // Pango inverse LEFT / RIGHT pour un paragraphe RTL (voir AGENTS.md)
-    justify: Gtk.Justification.LEFT,
-    cssClasses: [hebrew ? 'hebrew' : 'translation', 'link-text'],
-  });
-}
 
 /** Une source : référence (ouvre le passage) puis son texte. */
 function sourceBlock(reader: Reader, ref: string, openSource: OpenSource, group: CommentaryGroup): Gtk.Widget {
@@ -44,7 +29,7 @@ function sourceBlock(reader: Reader, ref: string, openSource: OpenSource, group:
   header.append(open);
   box.append(header);
   const body = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 });
-  body.append(spinner());
+  body.append(spinner(24, 24));
   box.append(body);
   void (async () => {
     let p: Passage | null = null;
@@ -54,15 +39,15 @@ function sourceBlock(reader: Reader, ref: string, openSource: OpenSource, group:
     } catch (e) {
       error = errorMessage(e);
     }
-    for (let c = body.get_first_child(); c !== null; c = body.get_first_child()) body.remove(c);
+    clearChildren(body);
     if (p === null) {
       body.append(new Gtk.Label({ label: `Texte indisponible : ${error}`, xalign: 0, wrap: true, cssClasses: ['dim-label'] }));
       return;
     }
     const translations = new Map<string, Gtk.Label>();
     for (const s of p.segments) {
-      if (s.he !== '') body.append(textLabel(sefariaMarkup(s.he), true));
-      const en = textLabel(s.en === '' ? '' : sefariaMarkup(s.en), false);
+      if (s.he !== '') body.append(linkLabel(sefariaMarkup(s.he), true));
+      const en = linkLabel(s.en === '' ? '' : sefariaMarkup(s.en), false);
       en.visible = s.en !== '';
       translations.set(s.label, en);
       body.append(en);
@@ -144,7 +129,7 @@ class CommentaryGroup {
             l.visible = true;
           }
         }
-        this.#notes(`Traduction par IA (${o.tool === 'claude' ? 'Claude Code' : 'opencode'})`, false);
+        this.#notes(`Traduction par IA (${TOOL_NAMES[o.tool]})`, false);
       } catch (error) {
         if (!this.#cancellable.is_cancelled()) this.#notes(`Traduction impossible : ${errorMessage(error)}`, true);
       } finally {
@@ -280,9 +265,9 @@ export function linksPanel(reader: Reader, openSource: OpenSource): { widget: Gt
     verse.select(ref);
     nav.pop_to_tag('links');
     title.subtitle = ref ?? '';
-    for (let c = content.get_first_child(); c !== null; c = content.get_first_child()) content.remove(c);
+    clearChildren(content);
     if (ref === null) return;
-    content.add_named(spinner(), 'loading');
+    content.add_named(spinner(24, 24), 'loading');
     generation += 1;
     const gen = generation;
     void (async () => {

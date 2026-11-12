@@ -8,6 +8,8 @@ import type { Accessor } from 'gnim';
 import type { Reader } from '../shared/reader.ts';
 import { scaleLabel } from './TextScale.ts';
 import { languageLabel } from '../shared/aiprompt.ts';
+import { clearChildren } from './widgets.ts';
+import { TOOL_NAMES } from '../shared/translate.ts';
 
 const DISPLAYS: readonly (readonly [Display, string])[] = [
   ['both', 'Les deux'],
@@ -38,7 +40,7 @@ function choices(items: readonly { readonly key: string; readonly label: string 
 
 /** Contenu du menu pour l'état courant. */
 function build(box: Gtk.Box, store: Reader, settings: SettingsStore, passage: Passage | null, reloadBook: (book: string) => void): void {
-  for (let c = box.get_first_child(); c !== null; c = box.get_first_child()) box.remove(c);
+  clearChildren(box);
   const s = settings.value.peek();
 
   const displays = new Gtk.Box({ cssClasses: ['linked'], homogeneous: true });
@@ -61,7 +63,7 @@ function build(box: Gtk.Box, store: Reader, settings: SettingsStore, passage: Pa
     box.append(new Gtk.Label({ label: 'Désactivée : choisissez Claude Code ou opencode dans les préférences.', xalign: 0, wrap: true, maxWidthChars: 32, cssClasses: ['dim-label'] }));
   } else {
     const ai = new Gtk.Box({ spacing: 6 });
-    const on = new Gtk.ToggleButton({ label: `Traduire en ${languageLabel(s.aiLanguage)}`, active: store.aiOn.peek(), hexpand: true, tooltipText: `Traduire la section avec ${s.aiTool === 'claude' ? 'Claude Code' : 'opencode'}` });
+    const on = new Gtk.ToggleButton({ label: `Traduire en ${languageLabel(s.aiLanguage)}`, active: store.aiOn.peek(), hexpand: true, tooltipText: `Traduire la section avec ${TOOL_NAMES[s.aiTool]}` });
     on.connect('toggled', () => {
       if (on.active !== store.aiOn.peek()) store.setAi(on.active);
     });
